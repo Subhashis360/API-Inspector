@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Scrollbar for Dark Theme */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #3c3f41;
+    border-radius: 5px;
+    border: 2px solid #1e1e1e;
+    /* Matches background to create padding effect */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #4c5052;
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Split Pane Gutter */
+.gutter {
+    background-color: #121212;
+    background-repeat: no-repeat;
+    background-position: 50%;
+    transition: background-color 0.2s;
+}
+
+.gutter:hover {
+    background-color: #0066FF;
+    /* Highlight on hover */
+}
+
+.gutter.gutter-horizontal {
+    cursor: col-resize;
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeOgF86wtGrOK6oAAAAABJRU5ErkJggg==');
+}

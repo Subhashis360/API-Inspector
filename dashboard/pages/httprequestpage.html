@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Inspector Pro - HTTP Requests</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/httprequestpage.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">⚡</div>
+                <div class="logo-text">API Inspector</div>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="httprequestpage.html" class="nav-item active">
+                    <span class="nav-icon">📡</span>
+                    <span class="nav-label">HTTP Requests</span>
+                    <span class="nav-badge" id="apiCount">0</span>
+                </a>
+                <a href="webshoketpage.html" class="nav-item">
+                    <span class="nav-icon">🔌</span>
+                    <span class="nav-label">WebSockets</span>
+                    <span class="nav-badge" id="wsCount">0</span>
+                </a>
+                <a href="repeterpage.html" class="nav-item">
+                    <span class="nav-icon">🔁</span>
+                    <span class="nav-label">Repeater</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection-status">
+                    <div class="status-dot"></div>
+                    <span id="connectionStatus">Connected</span>
+                </div>
+                <div class="action-buttons">
+                    <button class="icon-btn" id="importBtn" title="Import">📤</button>
+                    <button class="icon-btn" id="exportBtn" title="Export">📥</button>
+                    <button class="icon-btn danger" id="clearBtn" title="Clear All">🗑️</button>
+                </div>
+                <input type="file" id="importInput" accept=".json" style="display: none;">
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar" id="topBar">
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Search requests, URLs, methods...">
+                </div>
+
+                <div class="filters-container">
+                    <select id="methodFilter" class="filter-select">
+                        <option value="ALL">All Methods</option>
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                        <option value="PATCH">PATCH</option>
+                        <option value="OPTIONS">OPTIONS</option>
+                    </select>
+                    <select id="statusFilter" class="filter-select">
+                        <option value="ALL">All Status</option>
+                        <option value="2xx">2xx Success</option>
+                        <option value="3xx">3xx Redirect</option>
+                        <option value="4xx">4xx Client Error</option>
+                        <option value="5xx">5xx Server Error</option>
+                    </select>
+                </div>
+            </header>
+
+            <!-- Split View Container -->
+            <div class="split-view-container" id="splitViewContainer">
+                <!-- List View -->
+                <div class="list-pane">
+                    <div class="list-header">
+                        <div class="col-method">Method</div>
+                        <div class="col-url">Name / URL</div>
+                        <div class="col-status">Status</div>
+                        <div class="col-time">Time</div>
+                    </div>
+                    <div class="list-content" id="apiList">
+                        <!-- Items will be injected here -->
+                        <div class="empty-state">
+                            <div class="empty-icon">👋</div>
+                            <h3>Ready to capture</h3>
+                            <p>Requests will appear here automatically</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resizer -->
+                <div class="drag-handle" id="dragHandle"></div>
+
+                <!-- Details Pane -->
+                <div class="details-pane" id="detailsPane">
+                    <div class="details-empty" id="detailsEmpty">
+                        <div class="empty-icon">👈</div>
+                        <p>Select a request to view details</p>
+                    </div>
+                    <div class="details-content hidden" id="detailsContent">
+                        <div class="details-toolbar">
+                            <div class="detail-tabs">
+                                <button class="detail-tab active" data-view="split">Split</button>
+                                <button class="detail-tab" data-view="request">Request</button>
+                                <button class="detail-tab" data-view="response">Response</button>
+                                <button class="detail-tab" data-view="raw">Raw</button>
+                            </div>
+                            <div class="detail-actions">
+                                <button class="icon-btn" id="copyCurlBtn" title="Copy as cURL">📋</button>
+                                <button class="icon-btn" id="sendToRepeaterBtn" title="Send to Repeater">🔁</button>
+                                <button class="icon-btn" id="highlightBtn" title="Highlight">🖍️</button>
+                                <!-- Highlight Menu -->
+                                <div class="highlight-menu hidden" id="highlightMenu">
+                                    <div class="highlight-option" data-color="red"><span class="dot red"></span> Red
+                                    </div>
+                                    <div class="highlight-option" data-color="green"><span class="dot green"></span>
+                                        Green</div>
+                                    <div class="highlight-option" data-color="blue"><span class="dot blue"></span> Blue
+                                    </div>
+                                    <div class="highlight-option" data-color="yellow"><span class="dot yellow"></span>
+                                        Yellow</div>
+                                    <div class="highlight-option" data-color="purple"><span class="dot purple"></span>
+                                        Purple</div>
+                                    <div class="highlight-option" data-color="none">None</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="details-body" id="detailsBody">
+                            <!-- Details injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Context Menu -->
+            <div id="contextMenu" class="context-menu hidden">
+                <div class="context-menu-item" id="ctxSendToRepeater">
+                    <span class="context-icon">🔁</span> Send to Repeater
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/httprequestpage.js"></script>
+</body>
+
+</html>

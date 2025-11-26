@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Inspector Pro - WebSockets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/webshoketpage.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">⚡</div>
+                <div class="logo-text">API Inspector</div>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="httprequestpage.html" class="nav-item">
+                    <span class="nav-icon">📡</span>
+                    <span class="nav-label">HTTP Requests</span>
+                    <span class="nav-badge" id="apiCount">0</span>
+                </a>
+                <a href="webshoketpage.html" class="nav-item active">
+                    <span class="nav-icon">🔌</span>
+                    <span class="nav-label">WebSockets</span>
+                    <span class="nav-badge" id="wsCount">0</span>
+                </a>
+                <a href="repeterpage.html" class="nav-item">
+                    <span class="nav-icon">🔁</span>
+                    <span class="nav-label">Repeater</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection-status">
+                    <div class="status-dot"></div>
+                    <span id="connectionStatus">Connected</span>
+                </div>
+                <div class="action-buttons">
+                    <button class="icon-btn" id="importBtn" title="Import">📤</button>
+                    <button class="icon-btn" id="exportBtn" title="Export">📥</button>
+                    <button class="icon-btn danger" id="clearBtn" title="Clear All">🗑️</button>
+                </div>
+                <input type="file" id="importInput" accept=".json" style="display: none;">
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar" id="topBar">
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Search WebSocket connections...">
+                </div>
+            </header>
+
+            <!-- Split View Container -->
+            <div class="split-view-container" id="splitViewContainer">
+                <!-- List View -->
+                <div class="list-pane">
+                    <div class="list-header">
+                        <div class="col-url">URL</div>
+                        <div class="col-time">Time</div>
+                    </div>
+                    <div class="list-content" id="wsList">
+                        <div class="empty-state">
+                            <div class="empty-icon">🔌</div>
+                            <h3>No WebSockets</h3>
+                            <p>WebSocket connections will appear here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resizer -->
+                <div class="drag-handle" id="dragHandle"></div>
+
+                <!-- Details Pane -->
+                <div class="details-pane" id="detailsPane">
+                    <div class="details-empty" id="detailsEmpty">
+                        <div class="empty-icon">👈</div>
+                        <p>Select a connection to view details</p>
+                    </div>
+                    <div class="details-content hidden" id="detailsContent">
+                        <div class="details-toolbar">
+                            <div class="section-title" style="margin: 0;">Connection Details</div>
+                        </div>
+                        <div class="connection-info" id="connectionInfo">
+                            <!-- Connection info injected here -->
+                        </div>
+                        <div class="details-toolbar" style="margin-top: 0;">
+                            <div class="section-title" style="margin: 0; flex: 1;">Messages</div>
+                            <button class="view-toggle-btn" id="viewToggle">📝 Raw</button>
+                        </div>
+                        <div class="details-body" id="detailsBody">
+                            <!-- Messages injected here -->
+                        </div>
+                        <div class="message-send-panel">
+                            <textarea id="messageInput" placeholder="Type message to send..." rows="2"></textarea>
+                            <button id="sendMessage Btn" class="send-message-btn">Send ↑</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/webshoketpage.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Inspector Pro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #050505;
+      --bg-secondary: #111111;
+      --bg-card: #1a1a1a;
+      --accent-primary: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.5);
+      --text-primary: #ffffff;
+      --text-secondary: #a1a1aa;
+      --border-color: #333333;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+
+    body {
+      width: 400px;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      overflow-x: hidden;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 20px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo::before {
+      content: '⚡';
+      -webkit-text-fill-color: initial;
+      font-size: 16px;
+    }
+
+    .status-badge {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge.stopped {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .status-badge.recording {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+      animation: pulse 2s infinite;
+    }
+
+    /* Mode Selection */
+    .mode-selection {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .radio-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .radio-card:hover {
+      border-color: var(--accent-primary);
+      background: var(--bg-card);
+    }
+
+    .radio-card input[type="radio"] {
+      accent-color: var(--accent-primary);
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .radio-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .radio-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .radio-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Controls */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .input-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .input-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    select,
+    input[type="text"] {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus,
+    input[type="text"]:focus {
+      border-color: var(--accent-primary);
+    }
+
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      padding: 8px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--accent-primary);
+      width: 16px;
+      height: 16px;
+    }
+
+    .checkbox-label {
+      font-size: 12px;
+      color: var(--text-primary);
+      text-transform: none;
+    }
+
+    /* Info Box */
+    .info-box {
+      font-size: 11px;
+      color: var(--text-secondary);
+      padding: 10px;
+      background: rgba(59, 130, 246, 0.1);
+      border-left: 3px solid var(--accent-primary);
+      border-radius: 4px;
+      line-height: 1.4;
+    }
+
+    /* Main Action Button */
+    .action-btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-start:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-stop:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-dashboard {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      margin-top: 10px;
+    }
+
+    .btn-dashboard:hover {
+      border-color: var(--accent-primary);
+      background: var(--bg-secondary);
+    }
+
+    /* Recording View */
+    .recording-view {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .pulse-ring {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.1);
+      border: 2px solid var(--success);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .pulse-ring::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid var(--success);
+      animation: ripple 1.5s infinite;
+    }
+
+    .pulse-icon {
+      font-size: 24px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .stat-card {
+      background: var(--bg-secondary);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .target-url {
+      font-family: monospace;
+      color: var(--accent-primary);
+      font-size: 12px;
+      word-break: break-all;
+      background: rgba(59, 130, 246, 0.1);
+      padding: 8px;
+      border-radius: 4px;
+      width: 100%;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.6;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    @keyframes ripple {
+      0% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: scale(1.5);
+        opacity: 0;
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">API Inspector Pro</div>
+      <div id="statusBadge" class="status-badge stopped">Stopped</div>
+    </div>
+
+    <!-- Setup View -->
+    <div id="setupView">
+      <div class="control-group">
+
+        <!-- Target Selection Mode -->
+        <div class="mode-selection">
+          <label class="radio-card">
+            <input type="radio" name="targetMode" value="custom" checked>
+            <div class="radio-content">
+              <span class="radio-title">Custom URL</span>
+              <span class="radio-desc">Enter a specific URL to record</span>
+            </div>
+          </label>
+
+          <label class="radio-card">
+            <input type="radio" name="targetMode" value="current">
+            <div class="radio-content">
+              <span class="radio-title">Current Tab</span>
+              <span class="radio-desc">Record the active tab</span>
+            </div>
+          </label>
+
+          <label class="radio-card">
+            <input type="radio" name="targetMode" value="window">
+            <div class="radio-content">
+              <span class="radio-title">Whole Window</span>
+              <span class="radio-desc">Capture all requests (Current Tab)</span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Custom URL Inputs -->
+        <div id="customUrlSection" class="input-section">
+          <div class="input-wrapper">
+            <label>Target URL</label>
+            <input type="text" id="customUrl" placeholder="https://example.com">
+          </div>
+          <label class="checkbox-wrapper">
+            <input type="checkbox" id="openAutomatically" checked>
+            <span class="checkbox-label">Open site automatically</span>
+          </label>
+        </div>
+
+        <!-- Current Tab Info -->
+        <div id="currentTabSection" class="input-section hidden">
+          <div class="input-wrapper">
+            <label>Current Tab URL</label>
+            <div id="currentUrlDisplay" class="target-url">Detecting...</div>
+          </div>
+        </div>
+
+        <!-- Options -->
+        <div id="optionsSection" class="input-section"
+          style="border-top: 1px solid var(--border-color); padding-top: 15px;">
+          <label class="checkbox-wrapper" id="subdomainWrapper">
+            <input type="checkbox" id="includeSubdomains" checked>
+            <span class="checkbox-label">Capture Subdomains</span>
+          </label>
+        </div>
+
+        <div id="targetInfo" class="info-box hidden"></div>
+
+        <button id="startBtn" class="action-btn btn-start">Start Recording</button>
+      </div>
+    </div>
+
+    <!-- Recording View -->
+    <div id="recordingView" class="hidden">
+      <div class="recording-view">
+        <div class="pulse-ring">
+          <span class="pulse-icon">📡</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
+          <label>Monitoring</label>
+          <div id="recordingTarget" class="target-url">...</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="apiCount">0</div>
+            <div class="stat-label">API Calls</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="jsCount">0</div>
+            <div class="stat-label">JS Files</div>
+          </div>
+        </div>
+
+        <button id="stopBtn" class="action-btn btn-stop">Stop Recording</button>
+      </div>
+    </div>
+
+    <button id="dashboardBtn" class="action-btn btn-dashboard">Open Dashboard</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>

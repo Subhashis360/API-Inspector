@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "API & JS File Analyzer Pro",
+  "version": "1.2",
+  "description": "Extract and analyze JS files, API calls, and WebSocket traffic",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "webRequest",
+    "webNavigation",
+    "debugger",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "API & JS Analyzer"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dashboard.html",
+        "dashboard/pages/httprequestpage.html",
+        "dashboard/pages/webshoketpage.html",
+        "dashboard/pages/repeterpage.html",
+        "dashboard/css/common.css",
+        "dashboard/css/httprequestpage.css",
+        "dashboard/css/webshoketpage.css",
+        "dashboard/css/repeterpage.css",
+        "dashboard/js/common.js",
+        "dashboard/js/httprequestpage.js",
+        "dashboard/js/webshoketpage.js",
+        "dashboard/js/repeterpage.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

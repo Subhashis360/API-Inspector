@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Inspector Pro - Repeater</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/repeterpage.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">⚡</div>
+                <div class="logo-text">API Inspector</div>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="httprequestpage.html" class="nav-item">
+                    <span class="nav-icon">📡</span>
+                    <span class="nav-label">HTTP Requests</span>
+                    <span class="nav-badge" id="apiCount">0</span>
+                </a>
+                <a href="webshoketpage.html" class="nav-item">
+                    <span class="nav-icon">🔌</span>
+                    <span class="nav-label">WebSockets</span>
+                    <span class="nav-badge" id="wsCount">0</span>
+                </a>
+                <a href="repeterpage.html" class="nav-item active">
+                    <span class="nav-icon">🔁</span>
+                    <span class="nav-label">Repeater</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection-status">
+                    <div class="status-dot"></div>
+                    <span id="connectionStatus">Connected</span>
+                </div>
+                <div class="action-buttons">
+                    <button class="icon-btn" id="importBtn" title="Import">📤</button>
+                    <button class="icon-btn" id="exportBtn" title="Export">📥</button>
+                    <button class="icon-btn danger" id="clearBtn" title="Clear All">🗑️</button>
+                </div>
+                <input type="file" id="importInput" accept=".json" style="display: none;">
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Repeater Pane -->
+            <div class="repeater-pane" id="repeaterPane">
+                <div class="repeater-tabs-bar" id="repeaterTabsBar">
+                    <button class="add-tab-btn" id="addRepeaterTab">+</button>
+                </div>
+                <div class="repeater-workspace" id="repeaterWorkspace">
+                    <!-- Repeater content injected here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/repeterpage.js"></script>
+</body>
+
+</html>
