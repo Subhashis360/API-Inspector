@@ -6,7 +6,7 @@
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome-Extension-brightgreen?logo=googlechrome&logoColor=white)](https://chrome.google.com/webstore)
 [![Manifest Version](https://img.shields.io/badge/Manifest-V3-blue)](https://developer.chrome.com/docs/extensions/mv3/)
-[![Version](https://img.shields.io/badge/version-1.2-orange)](https://github.com/yourusername/apijsscanner)
+[![Version](https://img.shields.io/badge/version-1.2-orange)](https://github.com/Subhashis360/API-Inspector)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Intercept • Analyze • Debug • Repeat**
@@ -147,7 +147,7 @@ Perfect for testing, development, or if you want the latest features!
 1. **Download the Extension**
    ```bash
    # Clone the repository
-   git clone https://github.com/yourusername/apijsscanner.git
+   git clone https://github.com/Subhashis360/API-Inspector.git
    
    # Or download as ZIP and extract
    ```
@@ -433,9 +433,9 @@ const MAX_AGE_DAYS = 7;     // Auto-clear older data
 ### Getting Help
 
 If you encounter issues not covered here:
-- 🐞 [Open an issue](https://github.com/yourusername/apijsscanner/issues) on GitHub
-- 💬 Check existing [discussions](https://github.com/yourusername/apijsscanner/discussions)
-- 📧 Email: support@yourdomain.com
+- 🐞 [Open an issue](https://github.com/Subhashis360/API-Inspector/issues) on GitHub
+- 💬 Check existing [discussions](https://github.com/Subhashis360/API-Inspector/discussions)
+- 📧 Email: subhashis360@gmail.com
 
 ---
 
@@ -445,8 +445,8 @@ We welcome contributions from the community! Here's how you can help:
 
 ### Ways to Contribute
 
-- 🐛 **Report Bugs** - Found a bug? [Open an issue](https://github.com/yourusername/apijsscanner/issues/new)
-- ✨ **Suggest Features** - Have an idea? [Start a discussion](https://github.com/yourusername/apijsscanner/discussions)
+- 🐛 **Report Bugs** - Found a bug? [Open an issue](https://github.com/Subhashis360/API-Inspector/issues/new)
+- ✨ **Suggest Features** - Have an idea? [Start a discussion](https://github.com/Subhashis360/API-Inspector/discussions)
 - 📝 **Improve Documentation** - Help others understand the extension better
 - 💻 **Submit Code** - Fix bugs or add features via Pull Requests
 
@@ -456,8 +456,8 @@ We welcome contributions from the community! Here's how you can help:
 # 1. Fork the repository on GitHub
 
 # 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/apijsscanner.git
-cd apijsscanner
+git clone https://github.com/YOUR_USERNAME/API-Inspector.git
+cd API-Inspector
 
 # 3. Create a new branch
 git checkout -b feature/your-feature-name
@@ -517,7 +517,7 @@ git push origin feature/your-feature-name
 - [ ] Team collaboration features
 - [ ] Chrome Web Store publication
 
-**Want to influence the roadmap?** Share your ideas in [Discussions](https://github.com/yourusername/apijsscanner/discussions)!
+**Want to influence the roadmap?** Share your ideas in [Discussions](https://github.com/Subhashis360/API-Inspector/discussions)!
 
 ---
 
@@ -542,14 +542,14 @@ of this software and associated documentation files (the "Software")...
 
 - 📖 **Documentation**: You're reading it!
 - 💡 **FAQ**: Check [Troubleshooting](#-troubleshooting) section
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/yourusername/apijsscanner/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourusername/apijsscanner/discussions)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/Subhashis360/API-Inspector/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/Subhashis360/API-Inspector/discussions)
 
 ### Stay Updated
 
 - ⭐ **Star this repo** to stay notified of updates
 - 👁️ **Watch** for new releases
-- 🐦 **Follow** us on Twitter: [@YourTwitterHandle](https://twitter.com/yourhandle)
+- 🐦 **Follow** on GitHub: [@Subhashis360](https://github.com/Subhashis360)
 
 ---
 
@@ -573,7 +573,7 @@ Special thanks to:
 
 *If this extension helped you, consider giving it a ⭐ on GitHub!*
 
-[![GitHub stars](https://img.shields.io/github/stars/yourusername/apijsscanner?style=social)](https://github.com/yourusername/apijsscanner)
-[![GitHub forks](https://img.shields.io/github/forks/yourusername/apijsscanner?style=social)](https://github.com/yourusername/apijsscanner/fork)
+[![GitHub stars](https://img.shields.io/github/stars/Subhashis360/API-Inspector?style=social)](https://github.com/Subhashis360/API-Inspector)
+[![GitHub forks](https://img.shields.io/github/forks/Subhashis360/API-Inspector?style=social)](https://github.com/Subhashis360/API-Inspector/fork)
 
 </div>
