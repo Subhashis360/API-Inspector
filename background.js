@@ -1,8 +1,7 @@
-// Background script using Chrome Debugger API for full capture
 let attachedTabs = new Map();
 let collectedData = { jsFiles: {}, apiCalls: [], webSockets: [] };
+let windowModeActive = false; // Track if window mode is active
 
-// Helper function to check if a request is a JavaScript file
 function isJavaScriptFile(type, url) {
   if (!url) return false;
   const urlLower = url.toLowerCase();
@@ -12,7 +11,6 @@ function isJavaScriptFile(type, url) {
   return false;
 }
 
-// Helper function to check if a hostname matches target domain or is a subdomain
 function matchesDomainOrSubdomain(hostname, targetDomain) {
   if (!hostname || !targetDomain) return false;
   const hostnameLower = hostname.toLowerCase();
@@ -29,7 +27,6 @@ function matchesDomainOrSubdomain(hostname, targetDomain) {
   return false;
 }
 
-// Initialize
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     isRecording: false,
@@ -38,36 +35,37 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Message Handling
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'startRecording') {
-    doStartRecording(request.tabId, request.domain, request.captureAllRequests)
+    doStartRecording(request.windowId, request.tabId, request.domain, request.captureAllRequests)
       .then(() => sendResponse({ success: true, status: 'started' }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
   }
-
   if (request.action === 'stopRecording') {
     doStopRecording(request.tabId)
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
   }
-
   if (request.action === 'clearData') {
     collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
     chrome.storage.local.set({ collectedData });
     sendResponse({ success: true });
     return false;
   }
-
+  if (request.action === 'sendWebSocketMessage') {
+    sendWebSocketMessage(request.tabId, request.requestId, request.message)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
   sendResponse({ success: false, error: 'Unknown action' });
   return false;
 });
 
-// Recording Logic
-async function doStartRecording(tabId, domain, captureAllRequests = false) {
-  console.log('Starting recording for tab:', tabId, 'domain:', domain, 'captureAll:', captureAllRequests);
+async function doStartRecording(windowId, tabId, domain, captureAllRequests = false) {
+  console.log('Starting recording - windowId:', windowId, 'tabId:', tabId, 'domain:', domain, 'captureAll:', captureAllRequests);
 
   let normalizedDomain = domain;
   if (domain) {
@@ -75,62 +73,143 @@ async function doStartRecording(tabId, domain, captureAllRequests = false) {
   }
 
   try {
-    if (attachedTabs.has(tabId)) {
-      const existing = attachedTabs.get(tabId);
-      existing.domain = normalizedDomain;
-      existing.captureAllRequests = captureAllRequests;
-      attachedTabs.set(tabId, existing);
-      await updateRecordingState(true, normalizedDomain, tabId, null, captureAllRequests);
+    // For window mode, attach to all tabs in the window
+    if (captureAllRequests && windowId !== null) {
+      windowModeActive = true;
+
+      // Load existing data
+      const stored = await chrome.storage.local.get(['collectedData']);
+      if (stored.collectedData) {
+        collectedData = stored.collectedData;
+        if (!collectedData.apiCalls) collectedData.apiCalls = [];
+        if (!collectedData.jsFiles) collectedData.jsFiles = {};
+        if (!collectedData.webSockets) collectedData.webSockets = [];
+      } else {
+        collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
+        await chrome.storage.local.set({ collectedData });
+      }
+
+      // Attach to all tabs in the specified window
+      const tabs = await chrome.tabs.query({ windowId: windowId });
+      let attachedCount = 0;
+      for (const tab of tabs) {
+        if (tab.url && !isRestrictedUrl(tab.url)) {
+          try {
+            await attachToTab(tab.id, null, true);
+            attachedCount++;
+          } catch (e) {
+            console.log(`Could not attach to tab ${tab.id}:`, e.message);
+          }
+        }
+      }
+
+      if (attachedCount === 0) {
+        throw new Error('No valid tabs found to record. Please open a normal webpage (http:// or https://).');
+      }
+
+      await updateRecordingState(true, 'window', windowId, null, true);
+      console.log(`Window mode recording started - attached to ${attachedCount} tabs`);
       return;
     }
 
-    const debuggee = { tabId };
-    try {
-      await attachDebugger(debuggee, "1.3");
-    } catch (e) {
-      if (!e.message.includes("Already attached")) {
-        await updateRecordingState(false, domain, tabId, e.message, captureAllRequests);
-        throw e;
+    // Regular tab-specific recording
+    if (tabId !== null) {
+      const tab = await chrome.tabs.get(tabId);
+      if (tab && tab.url && isRestrictedUrl(tab.url)) {
+        const error = 'Cannot record on this page. Please navigate to a normal website (http:// or https://).';
+        await updateRecordingState(false, domain, tabId, error, captureAllRequests);
+        throw new Error(error);
       }
+
+      await attachToTab(tabId, normalizedDomain, captureAllRequests);
+      await updateRecordingState(true, normalizedDomain, tabId, null, captureAllRequests);
+      console.log(`Recording started. Capture All: ${captureAllRequests}`);
     }
-
-    // Initialize collectedData BEFORE enabling network to avoid race conditions
-    const stored = await chrome.storage.local.get(['collectedData']);
-    if (stored.collectedData) {
-      collectedData = stored.collectedData;
-      if (!collectedData.apiCalls) collectedData.apiCalls = [];
-      if (!collectedData.jsFiles) collectedData.jsFiles = {};
-      if (!collectedData.webSockets) collectedData.webSockets = [];
-    } else {
-      collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
-      await chrome.storage.local.set({ collectedData });
-    }
-
-    // Enable Network and disable cache for full capture
-    await sendCommand(debuggee, "Network.enable", {
-      maxResourceBufferSize: 100 * 1024 * 1024,
-      maxPostDataSize: 100 * 1024 * 1024
-    });
-
-    // CRITICAL: Disable cache to ensure all requests are captured
-    await sendCommand(debuggee, "Network.setCacheDisabled", { cacheDisabled: true });
-
-    const session = {
-      domain: normalizedDomain,
-      captureAllRequests: captureAllRequests,
-      requests: new Map(),
-      websockets: new Map()
-    };
-    attachedTabs.set(tabId, session);
-
-    await updateRecordingState(true, normalizedDomain, tabId, null, captureAllRequests);
-
-    console.log(`Recording started. Capture All: ${captureAllRequests}`);
   } catch (err) {
-    await updateRecordingState(false, domain, tabId, err.message, captureAllRequests);
+    await updateRecordingState(false, domain, tabId || windowId, err.message, captureAllRequests);
     throw err;
   }
 }
+
+function isRestrictedUrl(url) {
+  const restricted = ['chrome://', 'edge://', 'about:', 'chrome-extension://', 'devtools://'];
+  return restricted.some(r => url.startsWith(r));
+}
+
+async function attachToTab(tabId, domain, captureAllRequests) {
+  if (attachedTabs.has(tabId)) {
+    const existing = attachedTabs.get(tabId);
+    existing.domain = domain;
+    existing.captureAllRequests = captureAllRequests;
+    attachedTabs.set(tabId, existing);
+    return;
+  }
+
+  const debuggee = { tabId };
+  try {
+    await attachDebugger(debuggee, "1.3");
+  } catch (e) {
+    if (!e.message.includes("Already attached")) {
+      throw e;
+    }
+  }
+
+  const stored = await chrome.storage.local.get(['collectedData']);
+  if (stored.collectedData) {
+    collectedData = stored.collectedData;
+    if (!collectedData.apiCalls) collectedData.apiCalls = [];
+    if (!collectedData.jsFiles) collectedData.jsFiles = {};
+    if (!collectedData.webSockets) collectedData.webSockets = [];
+  } else {
+    collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
+    await chrome.storage.local.set({ collectedData });
+  }
+
+  await sendCommand(debuggee, "Network.enable", {
+    maxResourceBufferSize: 100 * 1024 * 1024,
+    maxPostDataSize: 100 * 1024 * 1024
+  });
+  await sendCommand(debuggee, "Network.setCacheDisabled", { cacheDisabled: true });
+  await sendCommand(debuggee, "Runtime.enable");
+
+  const session = {
+    domain: domain,
+    captureAllRequests: captureAllRequests,
+    requests: new Map(),
+    websockets: new Map()
+  };
+  attachedTabs.set(tabId, session);
+}
+
+// Listen for new tabs in window mode
+chrome.tabs.onCreated.addListener(async (tab) => {
+  if (windowModeActive && tab.id) {
+    // Wait a bit for the tab to initialize
+    setTimeout(async () => {
+      try {
+        const updatedTab = await chrome.tabs.get(tab.id);
+        if (updatedTab.url && !isRestrictedUrl(updatedTab.url)) {
+          await attachToTab(tab.id, null, true);
+        }
+      } catch (e) {
+        console.log('Could not attach to new tab:', e.message);
+      }
+    }, 1000);
+  }
+});
+
+// Listen for tab updates in window mode
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (windowModeActive && changeInfo.url) {
+    if (!isRestrictedUrl(changeInfo.url) && !attachedTabs.has(tabId)) {
+      try {
+        await attachToTab(tabId, null, true);
+      } catch (e) {
+        console.log('Could not attach to updated tab:', e.message);
+      }
+    }
+  }
+});
 
 async function updateRecordingState(isRecording, domain, tabId, error, captureAllRequests = false) {
   await chrome.storage.local.set({
@@ -144,14 +223,19 @@ async function updateRecordingState(isRecording, domain, tabId, error, captureAl
 }
 
 async function doStopRecording(tabId) {
-  if (!attachedTabs.has(tabId)) {
-    await chrome.storage.local.set({ isRecording: false });
-    return;
+  windowModeActive = false;
+
+  // Detach from all tabs
+  const tabsToDetach = Array.from(attachedTabs.keys());
+  for (const tid of tabsToDetach) {
+    try {
+      await new Promise((resolve) => chrome.debugger.detach({ tabId: tid }, resolve));
+    } catch (err) {
+      console.log('Error detaching from tab:', err);
+    }
+    attachedTabs.delete(tid);
   }
-  try {
-    await new Promise((resolve) => chrome.debugger.detach({ tabId }, resolve));
-  } catch (err) { }
-  attachedTabs.delete(tabId);
+
   await chrome.storage.local.set({ isRecording: false });
 }
 
@@ -173,19 +257,15 @@ function sendCommand(target, method, params = {}) {
   });
 }
 
-// Event Listener
 chrome.debugger.onEvent.addListener((source, method, params) => {
   const tabId = source.tabId;
   if (!attachedTabs.has(tabId)) return;
   const session = attachedTabs.get(tabId);
 
-  // HTTP Handling
   if (method === "Network.requestWillBeSent") handleRequest(tabId, params, session);
   else if (method === "Network.responseReceived") handleResponse(tabId, params, session);
   else if (method === "Network.loadingFinished") handleFinished(tabId, params, session);
   else if (method === "Network.loadingFailed") handleFailed(tabId, params, session);
-
-  // WebSocket Handling
   else if (method === "Network.webSocketCreated") handleWebSocketCreated(tabId, params, session);
   else if (method === "Network.webSocketWillSendHandshakeRequest") handleWebSocketHandshakeRequest(tabId, params, session);
   else if (method === "Network.webSocketHandshakeResponseReceived") handleWebSocketHandshakeResponse(tabId, params, session);
@@ -196,33 +276,38 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
 
 chrome.debugger.onDetach.addListener((source, reason) => {
   if (attachedTabs.has(source.tabId)) {
+    const session = attachedTabs.get(source.tabId);
+
+    // Mark all WebSockets from this tab as closed
+    for (const [requestId, wsEntry] of session.websockets) {
+      if (wsEntry.readyState !== 3) { // Not already closed
+        wsEntry.status = 'closed';
+        wsEntry.readyState = 3;
+        wsEntry.endTime = Date.now();
+        updateWsStorage(wsEntry);
+      }
+    }
+
     attachedTabs.delete(source.tabId);
-    chrome.storage.local.set({ isRecording: false });
+    // Only stop recording if no tabs are attached and not in window mode
+    if (attachedTabs.size === 0 && !windowModeActive) {
+      chrome.storage.local.set({ isRecording: false });
+    }
   }
 });
-
-// --- HTTP Handlers ---
 
 function handleRequest(tabId, params, session) {
   const { requestId, request, type } = params;
   const url = request.url;
 
-  // Filter Logic
-  // We strictly filter out static assets unless they are XHR/Fetch or WebSocket
   const isXhrOrFetch = type === 'XHR' || type === 'Fetch' || type === 'WebSocket';
-
-  // List of types to always ignore unless XHR/Fetch
   const isStaticType = ['Image', 'Stylesheet', 'Font', 'Media', 'Manifest', 'TextTrack', 'Ping', 'CSPViolationReport', 'Other'].includes(type);
-
-  // Check for static file extensions
   const urlLower = url.toLowerCase();
   const isStaticExtension = /\.(png|jpg|jpeg|gif|svg|ico|webp|bmp|tiff|css|woff|woff2|ttf|eot|otf|mp4|webm|mp3|wav|json|map)$/.test(urlLower.split('?')[0]);
 
-  // If it's a static asset (by type or extension) and NOT XHR/Fetch/WebSocket, ignore it
   if ((isStaticType || isStaticExtension) && !isXhrOrFetch) return;
 
-  // Further domain filtering if not capturing all
-  if (session.domain && !session.captureAllRequests) {
+  if (!session.captureAllRequests && session.domain) {
     try {
       const urlObj = new URL(url);
       const hostname = urlObj.hostname.replace(/^www\./, '').toLowerCase();
@@ -230,7 +315,6 @@ function handleRequest(tabId, params, session) {
 
       if (!matchesDomainOrSubdomain(hostname, targetDomain) && !url.startsWith('data:') && !url.startsWith('blob:')) {
         const method = (request.method || 'GET').toUpperCase();
-        // Allow POST/PUT/PATCH/DELETE even if cross-domain, but strict on GET
         if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !isXhrOrFetch) return;
       }
     } catch (e) { }
@@ -297,8 +381,6 @@ function handleFailed(tabId, params, session) {
   }
 }
 
-// --- WebSocket Handlers ---
-
 function handleWebSocketCreated(tabId, params, session) {
   const { requestId, url } = params;
   const wsEntry = {
@@ -306,68 +388,14 @@ function handleWebSocketCreated(tabId, params, session) {
     url: url,
     type: 'websocket',
     timestamp: new Date().toISOString(),
+    startTime: Date.now(),
     status: 'connecting',
-    frames: []
+    readyState: 0, // CONNECTING
+    frames: [],
+    tabId: tabId // Store tab ID for sending messages
   };
   session.websockets.set(requestId, wsEntry);
   updateWsStorage(wsEntry);
-}
-
-function handleWebSocketHandshakeRequest(tabId, params, session) {
-  // Can capture headers here if needed
-}
-
-function handleWebSocketHandshakeResponse(tabId, params, session) {
-  const { requestId, response } = params;
-  const wsEntry = session.websockets.get(requestId);
-  if (wsEntry) {
-    wsEntry.status = 'connected';
-    wsEntry.handshakeResponse = response;
-    updateWsStorage(wsEntry);
-  }
-}
-
-function handleWebSocketFrameSent(tabId, params, session) {
-  const { requestId, response } = params;
-  const wsEntry = session.websockets.get(requestId);
-  if (wsEntry) {
-    wsEntry.frames.push({
-      type: 'send',
-      data: response.payloadData,
-      time: new Date().toISOString()
-    });
-    updateWsStorage(wsEntry);
-  }
-}
-
-function handleWebSocketFrameReceived(tabId, params, session) {
-  const { requestId, response } = params;
-  const wsEntry = session.websockets.get(requestId);
-  if (wsEntry) {
-    wsEntry.frames.push({
-      type: 'receive',
-      data: response.payloadData,
-      time: new Date().toISOString()
-    });
-    updateWsStorage(wsEntry);
-  }
-}
-
-function handleWebSocketClosed(tabId, params, session) {
-  const { requestId } = params;
-  const wsEntry = session.websockets.get(requestId);
-  if (wsEntry) {
-    wsEntry.status = 'closed';
-    updateWsStorage(wsEntry);
-  }
-}
-
-// --- Storage Updates ---
-
-function updateStorage(entry) {
-  const index = collectedData.apiCalls.findIndex(c => c.id === entry.id);
-  if (index !== -1) collectedData.apiCalls[index] = entry;
-  else collectedData.apiCalls.push(entry);
 
   if (collectedData.apiCalls.length > 10000) collectedData.apiCalls.shift();
 
@@ -381,7 +409,71 @@ function updateStorage(entry) {
   chrome.storage.local.set({ collectedData });
 }
 
+// Function to send WebSocket messages
+async function sendWebSocketMessage(tabId, requestId, message) {
+  console.log('Attempting to send WebSocket message:', { tabId, requestId, message });
+
+  if (!attachedTabs.has(tabId)) {
+    throw new Error('Tab is not being recorded. Please start recording first.');
+  }
+
+  const session = attachedTabs.get(tabId);
+  const wsEntry = session.websockets.get(requestId);
+
+  if (!wsEntry) {
+    throw new Error('WebSocket connection not found in active session.');
+  }
+
+  // Relaxed check: Allow sending if readyState is 1 OR status is 'connected'
+  if (wsEntry.readyState !== 1 && wsEntry.status !== 'connected') {
+    throw new Error(`WebSocket is ${wsEntry.status}. Can only send messages when connection is open.`);
+  }
+
+  try {
+    // Send the WebSocket frame using Chrome DevTools Protocol
+    await sendCommand({ tabId }, "Network.sendWebSocketFrame", {
+      requestId: requestId,
+      data: message
+    });
+
+    console.log('WebSocket message sent successfully');
+
+    // Add the sent message to frames (it will also be captured by handleWebSocketFrameSent)
+    wsEntry.frames.push({
+      type: 'send',
+      data: message,
+      time: new Date().toISOString(),
+      timestamp: Date.now(),
+      manual: true // Mark as manually sent
+    });
+    updateWsStorage(wsEntry);
+
+  } catch (error) {
+    console.error('Failed to send WebSocket message:', error);
+    throw new Error('Failed to send message: ' + error.message);
+  }
+}
+
+// Listen for tab closures to update WebSocket status
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (attachedTabs.has(tabId)) {
+    const session = attachedTabs.get(tabId);
+
+    // Mark all WebSockets from this tab as closed
+    for (const [requestId, wsEntry] of session.websockets) {
+      if (wsEntry.readyState !== 3) { // Not already closed
+        wsEntry.status = 'closed';
+        wsEntry.readyState = 3;
+        wsEntry.endTime = Date.now();
+        updateWsStorage(wsEntry);
+      }
+    }
+  }
+});
+
 function updateWsStorage(entry) {
+  if (!collectedData.webSockets) collectedData.webSockets = [];
+
   const index = collectedData.webSockets.findIndex(w => w.id === entry.id);
   if (index !== -1) collectedData.webSockets[index] = entry;
   else collectedData.webSockets.push(entry);

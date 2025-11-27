@@ -31,6 +31,7 @@ class WebSocketPage extends DashboardCommon {
                 this.selectedItem = updated;
                 this.renderDetails();
                 this.renderConnectionInfo();
+                this.updateSendButtonState();
             }
         }
     }
@@ -45,7 +46,7 @@ class WebSocketPage extends DashboardCommon {
         // View Toggle
         this.elements.viewToggle.addEventListener('click', () => {
             this.viewMode = this.viewMode === 'pretty' ? 'raw' : 'pretty';
-            this.elements.viewToggle.textContent = this.viewMode === 'pretty' ? '📝 Raw' : '✨ Pretty';
+            this.elements.viewToggle.textContent = this.viewMode === 'pretty' ? '🔍 Raw' : '✨ Pretty';
             this.renderDetails();
         });
 
@@ -59,6 +60,10 @@ class WebSocketPage extends DashboardCommon {
                 e.preventDefault();
                 this.sendMessage();
             }
+        });
+
+        this.elements.messageInput.addEventListener('input', () => {
+            this.updateSendButtonState();
         });
 
         // Resizer
@@ -141,32 +146,72 @@ class WebSocketPage extends DashboardCommon {
         this.renderList();
     }
 
+    updateSendButtonState() {
+        const message = this.elements.messageInput.value.trim();
+        const readyState = this.selectedItem ? this.getReadyState(this.selectedItem) : 3;
+        const isOpen = readyState === 1;
+        const hasMessage = message.length > 0;
+
+        this.elements.sendMessageBtn.disabled = !isOpen || !hasMessage;
+
+        if (!isOpen && this.selectedItem) {
+            const status = this.getConnectionStatus(readyState);
+            this.elements.sendMessageBtn.title = `Cannot send - Connection is ${status}`;
+        } else if (!hasMessage) {
+            this.elements.sendMessageBtn.title = 'Type a message to send';
+        } else {
+            this.elements.sendMessageBtn.title = 'Send message';
+        }
+    }
+
     sendMessage() {
         const message = this.elements.messageInput.value.trim();
         if (!message || !this.selectedItem) return;
 
-        // Add message to frames
-        if (!this.selectedItem.frames) {
-            this.selectedItem.frames = [];
+        const tabId = this.selectedItem.tabId;
+        if (!tabId) {
+            alert('Cannot send message: Missing Tab ID. This connection may be from an old recording session. Please start a new recording.');
+            return;
         }
 
-        this.selectedItem.frames.push({
-            type: 'send',
-            data: message,
-            time: Date.now()
+        const readyState = this.getReadyState(this.selectedItem);
+        if (readyState !== 1) {
+            const status = this.getConnectionStatus(readyState);
+            alert(`Cannot send message: WebSocket is ${status}. Messages can only be sent when the connection is Open.`);
+            return;
+        }
+
+        // Disable button while sending
+        this.elements.sendMessageBtn.disabled = true;
+        this.elements.sendMessageBtn.textContent = 'Sending...';
+
+        // Send to background script
+        chrome.runtime.sendMessage({
+            action: 'sendWebSocketMessage',
+            tabId: tabId,
+            requestId: this.selectedItem.id,
+            message: message
+        }, (response) => {
+            // Re-enable button
+            this.elements.sendMessageBtn.disabled = false;
+            this.elements.sendMessageBtn.textContent = 'Send →';
+
+            if (chrome.runtime.lastError) {
+                console.error('Failed to send:', chrome.runtime.lastError);
+                alert('Failed to send: ' + chrome.runtime.lastError.message);
+                return;
+            }
+
+            if (response && response.success) {
+                this.elements.messageInput.value = '';
+                this.updateSendButtonState();
+                // Force a refresh to show the sent message
+                setTimeout(() => this.loadData(), 100);
+            } else {
+                console.error('Failed to send:', response?.error);
+                alert('Failed to send message: ' + (response?.error || 'Unknown error'));
+            }
         });
-
-        // Update in data
-        const index = this.data.webSockets.findIndex(ws => ws.id === this.selectedItem.id);
-        if (index !== -1) {
-            this.data.webSockets[index] = this.selectedItem;
-        }
-
-        this.saveData();
-        this.elements.messageInput.value = '';
-        this.renderDetails();
-        this.renderConnectionInfo();
-        this.renderList();
     }
 
     renderList() {
@@ -197,6 +242,14 @@ class WebSocketPage extends DashboardCommon {
         });
     }
 
+    getReadyState(item) {
+        if (item.readyState !== undefined) return item.readyState;
+        // Backward compatibility
+        if (item.status === 'connected') return 1;
+        if (item.status === 'connecting') return 0;
+        return 3; // Default to Closed
+    }
+
     createWsListItem(item, isSelected) {
         const el = document.createElement('div');
         el.className = `ws-item ${isSelected ? 'selected' : ''}`;
@@ -215,9 +268,7 @@ class WebSocketPage extends DashboardCommon {
             }
         }
 
-        // Get connection status - check multiple possible status fields
-        const readyState = item.readyState !== undefined ? item.readyState :
-            (item.state !== undefined ? item.state : 1); // Default to Open
+        const readyState = this.getReadyState(item);
         const status = this.getConnectionStatus(readyState);
         const statusColor = this.getStatusColor(readyState);
 
@@ -246,17 +297,17 @@ class WebSocketPage extends DashboardCommon {
             2: 'Closing',
             3: 'Closed'
         };
-        return states[readyState] !== undefined ? states[readyState] : 'Open';
+        return states[readyState] !== undefined ? states[readyState] : 'Closed';
     }
 
     getStatusColor(readyState) {
         const colors = {
-            0: '#FFA500',
-            1: '#4CAF50',
-            2: '#FF9800',
-            3: '#F44336'
+            0: '#FFA500', // Orange for Connecting
+            1: '#4CAF50', // Green for Open
+            2: '#FF9800', // Orange for Closing
+            3: '#F44336'  // Red for Closed
         };
-        return colors[readyState] !== undefined ? colors[readyState] : '#4CAF50';
+        return colors[readyState] !== undefined ? colors[readyState] : '#F44336';
     }
 
     selectItem(item) {
@@ -266,6 +317,7 @@ class WebSocketPage extends DashboardCommon {
         this.elements.detailsContent.classList.remove('hidden');
         this.renderConnectionInfo();
         this.renderDetails();
+        this.updateSendButtonState();
     }
 
     renderConnectionInfo() {
@@ -281,8 +333,7 @@ class WebSocketPage extends DashboardCommon {
             `${((item.endTime - startTimeValue) / 1000).toFixed(2)}s` :
             `${((Date.now() - startTimeValue) / 1000).toFixed(2)}s`;
 
-        const readyState = item.readyState !== undefined ? item.readyState :
-            (item.state !== undefined ? item.state : 1);
+        const readyState = this.getReadyState(item);
         const status = this.getConnectionStatus(readyState);
         const statusColor = this.getStatusColor(readyState);
 
@@ -351,8 +402,8 @@ class WebSocketPage extends DashboardCommon {
 
             // Handle timestamp
             let timestamp = 'N/A';
-            if (msg.time) {
-                const date = new Date(msg.time);
+            if (msg.timestamp) {
+                const date = new Date(msg.timestamp);
                 if (!isNaN(date.getTime())) {
                     timestamp = date.toLocaleTimeString('en-US', {
                         hour: '2-digit',
@@ -361,8 +412,8 @@ class WebSocketPage extends DashboardCommon {
                         fractionalSecondDigits: 3
                     });
                 }
-            } else if (msg.timestamp) {
-                const date = new Date(msg.timestamp);
+            } else if (msg.time) {
+                const date = new Date(msg.time);
                 if (!isNaN(date.getTime())) {
                     timestamp = date.toLocaleTimeString('en-US', {
                         hour: '2-digit',
@@ -374,6 +425,7 @@ class WebSocketPage extends DashboardCommon {
             }
 
             const direction = msgType === 'send' ? '↑ Sent' : '↓ Received';
+            const manualTag = msg.manual ? ' <span style="color: #9333EA;">(Manual)</span>' : '';
             const dataSize = this.formatBytes(new TextEncoder().encode(msg.data).length);
 
             let displayData = msg.data;
@@ -391,7 +443,7 @@ class WebSocketPage extends DashboardCommon {
 
             el.innerHTML = `
                 <div class="ws-msg-header">
-                    <span class="ws-msg-direction">${direction}</span>
+                    <span class="ws-msg-direction">${direction}${manualTag}</span>
                     <span class="ws-msg-meta">#${index + 1} • ${timestamp} • ${dataSize}</span>
                 </div>
                 <div class="ws-msg-data ${isJson ? 'ws-json-data' : ''}">

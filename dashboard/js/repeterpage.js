@@ -260,7 +260,7 @@ class RepeaterPage extends DashboardCommon {
             try {
                 const url = tab.url.startsWith('http') ? tab.url : 'http://' + tab.url;
                 const parsedUrl = new URL(url);
-                const path = parsedUrl.pathname || '/';
+                const path = (parsedUrl.pathname || '/') + (parsedUrl.search || '');
                 content += `${tab.method} ${path} HTTP/1.1\n`;
                 const host = parsedUrl.host;
                 content += `Host: ${host}\n`;
@@ -339,10 +339,10 @@ class RepeaterPage extends DashboardCommon {
                 </div>
             </div>
             <div class="unified-editor">
-                <div class="line-numbers">${lineNumbers}</div>
+                <div class="line-numbers" id="resLineNumbers">${lineNumbers}</div>
                 <div class="editor-content">
-                    <pre class="editor-highlight">${this.syntaxHighlightUnified(rawContent)}</pre>
-                    <textarea class="editor-textarea" readonly>${rawContent}</textarea>
+                    <pre class="editor-highlight" id="resHighlight">${this.syntaxHighlightUnified(rawContent)}</pre>
+                    <textarea class="editor-textarea" id="resEditor" readonly>${rawContent}</textarea>
                 </div>
             </div>
         `;
@@ -451,6 +451,19 @@ class RepeaterPage extends DashboardCommon {
 
         // Send
         document.getElementById('repSend').addEventListener('click', () => this.executeRepeaterRequest(tab));
+
+        // Response Editor Scroll Sync
+        const resEditor = document.getElementById('resEditor');
+        const resHighlight = document.getElementById('resHighlight');
+        const resLineNumbers = document.getElementById('resLineNumbers');
+
+        if (resEditor && resHighlight && resLineNumbers) {
+            resEditor.addEventListener('scroll', () => {
+                resHighlight.scrollTop = resEditor.scrollTop;
+                resHighlight.scrollLeft = resEditor.scrollLeft;
+                resLineNumbers.scrollTop = resEditor.scrollTop;
+            });
+        }
     }
 
     parseRawRequest(text, tab) {
