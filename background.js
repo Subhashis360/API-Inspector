@@ -36,33 +36,74 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'startRecording') {
+  console.log('[Background] Message received:', JSON.stringify(request));
+
+  const action = request.action ? request.action.trim() : '';
+
+  if (action === 'startRecording') {
     doStartRecording(request.windowId, request.tabId, request.domain, request.captureAllRequests)
       .then(() => sendResponse({ success: true, status: 'started' }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
   }
-  if (request.action === 'stopRecording') {
+  if (action === 'stopRecording') {
     doStopRecording(request.tabId)
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
   }
-  if (request.action === 'clearData') {
+  if (action === 'clearData') {
     collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
     chrome.storage.local.set({ collectedData });
     sendResponse({ success: true });
     return false;
   }
-  if (request.action === 'sendWebSocketMessage') {
-    sendWebSocketMessage(request.tabId, request.requestId, request.message)
+  if (action === 'deleteWebSocket') {
+    deleteWebSocket(request.requestId)
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
   }
-  sendResponse({ success: false, error: 'Unknown action' });
+
+  // Catch-all for unknown actions to aid debugging
+  console.warn('[Background] Unknown action received:', request.action);
+  // Log char codes to detect hidden characters
+  if (request.action) {
+    console.warn('Action char codes:', request.action.split('').map(c => c.charCodeAt(0)));
+  }
+  sendResponse({ success: false, error: 'Unknown action: ' + request.action });
   return false;
 });
+
+
+
+function updateStorage(entry) {
+  if (!collectedData.apiCalls) collectedData.apiCalls = [];
+
+  // Check if entry exists
+  const index = collectedData.apiCalls.findIndex(req => req.id === entry.id);
+  if (index !== -1) {
+    collectedData.apiCalls[index] = entry;
+  } else {
+    collectedData.apiCalls.push(entry);
+  }
+
+  // Optimize storage by keeping only last 2000 requests
+  if (collectedData.apiCalls.length > 2000) {
+    collectedData.apiCalls.shift();
+  }
+
+  chrome.storage.local.set({ collectedData });
+}
+
+// Helper to get hostname safely
+function getHostname(url) {
+  try {
+    return new URL(url).hostname;
+  } catch (e) {
+    return null;
+  }
+}
 
 async function doStartRecording(windowId, tabId, domain, captureAllRequests = false) {
   console.log('Starting recording - windowId:', windowId, 'tabId:', tabId, 'domain:', domain, 'captureAll:', captureAllRequests);
@@ -93,9 +134,13 @@ async function doStartRecording(windowId, tabId, domain, captureAllRequests = fa
       const tabs = await chrome.tabs.query({ windowId: windowId });
       let attachedCount = 0;
       for (const tab of tabs) {
-        if (tab.url && !isRestrictedUrl(tab.url)) {
+        const urlToUse = tab.url || tab.pendingUrl;
+        if (urlToUse && !isRestrictedUrl(urlToUse)) {
+          console.log(`Attaching to tab: ${urlToUse}`);
           try {
-            await attachToTab(tab.id, null, true);
+            // Pass the tab's hostname as the domain (source)
+            const tabHost = getHostname(urlToUse);
+            await attachToTab(tab.id, tabHost, true);
             attachedCount++;
           } catch (e) {
             console.log(`Could not attach to tab ${tab.id}:`, e.message);
@@ -115,7 +160,8 @@ async function doStartRecording(windowId, tabId, domain, captureAllRequests = fa
     // Regular tab-specific recording
     if (tabId !== null) {
       const tab = await chrome.tabs.get(tabId);
-      if (tab && tab.url && isRestrictedUrl(tab.url)) {
+      const urlToUse = tab.url || tab.pendingUrl;
+      if (tab && urlToUse && isRestrictedUrl(urlToUse)) {
         const error = 'Cannot record on this page. Please navigate to a normal website (http:// or https://).';
         await updateRecordingState(false, domain, tabId, error, captureAllRequests);
         throw new Error(error);
@@ -132,6 +178,7 @@ async function doStartRecording(windowId, tabId, domain, captureAllRequests = fa
 }
 
 function isRestrictedUrl(url) {
+  if (!url) return true;
   const restricted = ['chrome://', 'edge://', 'about:', 'chrome-extension://', 'devtools://'];
   return restricted.some(r => url.startsWith(r));
 }
@@ -139,7 +186,7 @@ function isRestrictedUrl(url) {
 async function attachToTab(tabId, domain, captureAllRequests) {
   if (attachedTabs.has(tabId)) {
     const existing = attachedTabs.get(tabId);
-    existing.domain = domain;
+    if (domain) existing.domain = domain; // Update domain if provided
     existing.captureAllRequests = captureAllRequests;
     attachedTabs.set(tabId, existing);
     return;
@@ -188,8 +235,10 @@ chrome.tabs.onCreated.addListener(async (tab) => {
     setTimeout(async () => {
       try {
         const updatedTab = await chrome.tabs.get(tab.id);
-        if (updatedTab.url && !isRestrictedUrl(updatedTab.url)) {
-          await attachToTab(tab.id, null, true);
+        const urlToUse = updatedTab.url || updatedTab.pendingUrl;
+        if (urlToUse && !isRestrictedUrl(urlToUse)) {
+          const tabHost = getHostname(urlToUse);
+          await attachToTab(tab.id, tabHost, true);
         }
       } catch (e) {
         console.log('Could not attach to new tab:', e.message);
@@ -201,9 +250,11 @@ chrome.tabs.onCreated.addListener(async (tab) => {
 // Listen for tab updates in window mode
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (windowModeActive && changeInfo.url) {
-    if (!isRestrictedUrl(changeInfo.url) && !attachedTabs.has(tabId)) {
+    if (!isRestrictedUrl(changeInfo.url)) {
       try {
-        await attachToTab(tabId, null, true);
+        const tabHost = getHostname(changeInfo.url);
+        // Always update attachment to capture new domain info if navigation happened
+        await attachToTab(tabId, tabHost, true);
       } catch (e) {
         console.log('Could not attach to updated tab:', e.message);
       }
@@ -296,16 +347,84 @@ chrome.debugger.onDetach.addListener((source, reason) => {
   }
 });
 
-function handleRequest(tabId, params, session) {
+async function handleRequest(tabId, params, session) {
   const { requestId, request, type } = params;
   const url = request.url;
 
-  const isXhrOrFetch = type === 'XHR' || type === 'Fetch' || type === 'WebSocket';
-  const isStaticType = ['Image', 'Stylesheet', 'Font', 'Media', 'Manifest', 'TextTrack', 'Ping', 'CSPViolationReport', 'Other'].includes(type);
-  const urlLower = url.toLowerCase();
-  const isStaticExtension = /\.(png|jpg|jpeg|gif|svg|ico|webp|bmp|tiff|css|woff|woff2|ttf|eot|otf|mp4|webm|mp3|wav|json|map)$/.test(urlLower.split('?')[0]);
+  // Lazy update: If session domain is missing, try to fetch it now
+  if (!session.domain) {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      const urlToUse = tab.url || tab.pendingUrl;
+      if (urlToUse) {
+        const host = getHostname(urlToUse);
+        if (host) {
+          session.domain = host;
+          console.log(`Late-updated domain for tab ${tabId}: ${host}`);
+        }
+      }
+    } catch (e) { }
+  }
 
-  if ((isStaticType || isStaticExtension) && !isXhrOrFetch) return;
+  // ULTRA-STRICT FILTER: ONLY capture XHR, Fetch, WebSocket requests
+  const urlLower = url.toLowerCase();
+
+  // Only allow http/https URLs
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    console.log(`[API Inspector] ❌ Blocked non-HTTP: ${url}`);
+    return;
+  }
+
+  // ONLY allow XHR, Fetch, and WebSocket types - block EVERYTHING else
+  if (type !== 'XHR' && type !== 'Fetch' && type !== 'WebSocket') {
+    console.log(`[API Inspector] ❌ Blocked type ${type}: ${url}`);
+    return;
+  }
+
+  // Additional safety: Block static file extensions
+  const staticExtensions = /\.(png|jpg|jpeg|gif|svg|wasm|ico|webp|bmp|css|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac|json|xml|js|mjs|jsx|ts|tsx|map|pdf|zip|rar|tar|gz|7z)$/i;
+  if (staticExtensions.test(urlLower.split('?')[0])) {
+    console.log(`[API Inspector] ❌ Blocked extension: ${url}`);
+    return;
+  }
+
+  // Block static asset paths
+  const staticPaths = /\/(images?|img|assets|static|media|fonts?|css|styles?|js|javascripts?|scripts?|icons?|files?)\//i;
+  if (staticPaths.test(urlLower)) {
+    console.log(`[API Inspector] ❌ Blocked path: ${url}`);
+    return;
+  }
+
+  // Layer 4: Block Analytics, Tracking, and Push Notifications
+  // Blocks common services: Google Analytics, GTM, Firebase, OneSignal, Segment, Mixpanel, etc.
+  // Blocks keywords: analytics, tracking, telemetry, pixel, metric, etc.
+  const trackingPatterns = [
+    'google-analytics', 'googletagmanager', 'g.doubleclick', 'googleads', 'doubleclick', 'facebook.com/tr',
+    'analytics', 'telemetry', 'pixel', 'tracker', 'tracking',
+    'firebase', 'fcm.googleapis', 'onesignal', 'braze', 'push', 'notification',
+    'segment', 'mixpanel', 'amplitude', 'adjust', 'appsflyer', 'heapanalytics',
+    'hotjar', 'clarity', 'sentry', 'newrelic', 'datadog',
+    'collect', 'measure', 'beacon',
+    // Added based on user feedback:
+    'notifyvisitors', 'clevertap', 'accounts.google.com', 'heatmaps', 'event-api'
+  ];
+
+  if (trackingPatterns.some(p => urlLower.includes(p))) {
+    console.log(`[API Inspector] ❌ Blocked tracking/analytics: ${url}`);
+    return;
+  }
+
+  console.log(`[API Inspector] ✅ CAPTURED: ${type} - ${url}`);
+
+  // Domain filtering
+  let requestDomain = session.domain || 'Unknown';
+  if (requestDomain === 'Unknown') {
+    try {
+      const urlObj = new URL(url);
+      requestDomain = urlObj.hostname.replace(/^www\./, '');
+      console.log(`[API Inspector] Using request hostname as fallback source: ${requestDomain}`);
+    } catch (e) { }
+  }
 
   if (!session.captureAllRequests && session.domain) {
     try {
@@ -315,7 +434,9 @@ function handleRequest(tabId, params, session) {
 
       if (!matchesDomainOrSubdomain(hostname, targetDomain) && !url.startsWith('data:') && !url.startsWith('blob:')) {
         const method = (request.method || 'GET').toUpperCase();
-        if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !isXhrOrFetch) return;
+        if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+          return;
+        }
       }
     } catch (e) { }
   }
@@ -323,9 +444,11 @@ function handleRequest(tabId, params, session) {
   const entry = {
     id: requestId,
     url: url,
+    sourceDomain: requestDomain, // Use the resolved domain
     method: (request.method || 'GET').toUpperCase(),
     type: type,
     timestamp: new Date().toISOString(),
+    startTime: Date.now(),
     requestHeaders: request.headers ? Object.entries(request.headers).map(([name, value]) => ({ name, value })) : [],
     requestBody: request.postData || null,
     status: 'pending'
@@ -353,6 +476,11 @@ async function handleFinished(tabId, params, session) {
   const entry = session.requests.get(requestId);
   if (entry) {
     entry.status = 'completed';
+    // Calculate duration
+    if (entry.startTime) {
+      entry.time = Date.now() - entry.startTime;
+    }
+
     if (!entry.response) entry.response = { statusCode: 0, headers: [] };
 
     try {
@@ -376,6 +504,10 @@ function handleFailed(tabId, params, session) {
   if (entry) {
     entry.status = 'failed';
     entry.error = errorText;
+    // Calculate time even for failed requests
+    if (entry.startTime) {
+      entry.time = Date.now() - entry.startTime;
+    }
     updateStorage(entry);
     setTimeout(() => session.requests.delete(requestId), 60000);
   }
@@ -399,16 +531,12 @@ function handleWebSocketCreated(tabId, params, session) {
 
   if (collectedData.apiCalls.length > 10000) collectedData.apiCalls.shift();
 
-  if (isJavaScriptFile(entry.type, entry.url)) {
-    const urlObj = new URL(entry.url);
-    const domain = urlObj.hostname;
-    if (!collectedData.jsFiles[domain]) collectedData.jsFiles[domain] = {};
-    collectedData.jsFiles[domain][entry.url] = { url: entry.url, type: entry.type, lastSeen: new Date().toISOString() };
-  }
+
 
   chrome.storage.local.set({ collectedData });
 }
 
+// Function to send WebSocket messages
 // Function to send WebSocket messages
 async function sendWebSocketMessage(tabId, requestId, message) {
   console.log('Attempting to send WebSocket message:', { tabId, requestId, message });
@@ -430,15 +558,40 @@ async function sendWebSocketMessage(tabId, requestId, message) {
   }
 
   try {
-    // Send the WebSocket frame using Chrome DevTools Protocol
-    await sendCommand({ tabId }, "Network.sendWebSocketFrame", {
-      requestId: requestId,
-      data: message
+    // Attempt to send via content script hook (since Network.sendWebSocketFrame is not available)
+    const expression = `
+      (function() {
+        try {
+          if (window.__capturedWebSockets && window.__capturedWebSockets['${wsEntry.url}']) {
+            window.__capturedWebSockets['${wsEntry.url}'].send('${message.replace(/'/g, "\\'")}');
+            return { success: true };
+          } else {
+            return { success: false, error: 'WebSocket instance not found in page context' };
+          }
+        } catch (e) {
+          return { success: false, error: e.toString() };
+        }
+      })()
+    `;
+
+    const result = await sendCommand({ tabId }, "Runtime.evaluate", {
+      expression: expression,
+      returnByValue: true
     });
 
-    console.log('WebSocket message sent successfully');
+    if (result.exceptionDetails) {
+      throw new Error('Script evaluation failed: ' + result.exceptionDetails.text);
+    }
 
-    // Add the sent message to frames (it will also be captured by handleWebSocketFrameSent)
+    if (result.result && result.result.value) {
+      if (!result.result.value.success) {
+        throw new Error(result.result.value.error);
+      }
+    }
+
+    console.log('WebSocket message sent successfully via script injection');
+
+    // Add the sent message to frames (it will also be captured by handleWebSocketFrameSent/intercept)
     wsEntry.frames.push({
       type: 'send',
       data: message,
@@ -481,4 +634,91 @@ function updateWsStorage(entry) {
   if (collectedData.webSockets.length > 1000) collectedData.webSockets.shift();
 
   chrome.storage.local.set({ collectedData });
+}
+
+function handleWebSocketHandshakeResponse(tabId, params, session) {
+  const { requestId, response } = params;
+  const wsEntry = session.websockets.get(requestId);
+  if (wsEntry) {
+    wsEntry.status = 'connected';
+    wsEntry.readyState = 1; // OPEN
+    wsEntry.handshakeResponse = response;
+    updateWsStorage(wsEntry);
+  }
+}
+
+function handleWebSocketFrameSent(tabId, params, session) {
+  const { requestId, response } = params;
+  const wsEntry = session.websockets.get(requestId);
+  if (wsEntry && response && response.payloadData) {
+    wsEntry.frames.push({
+      type: 'send',
+      data: response.payloadData,
+      time: new Date().toISOString(),
+      timestamp: Date.now()
+    });
+    updateWsStorage(wsEntry);
+  }
+}
+
+function handleWebSocketFrameReceived(tabId, params, session) {
+  const { requestId, response } = params;
+  const wsEntry = session.websockets.get(requestId);
+  if (wsEntry && response && response.payloadData) {
+    wsEntry.frames.push({
+      type: 'receive',
+      data: response.payloadData,
+      time: new Date().toISOString(),
+      timestamp: Date.now()
+    });
+    updateWsStorage(wsEntry);
+  }
+}
+
+function handleWebSocketClosed(tabId, params, session) {
+  const { requestId } = params;
+  const wsEntry = session.websockets.get(requestId);
+  if (wsEntry) {
+    wsEntry.status = 'closed';
+    wsEntry.readyState = 3; // CLOSED
+    wsEntry.endTime = Date.now();
+    updateWsStorage(wsEntry);
+  }
+}
+
+async function deleteWebSocket(requestId) {
+  console.log(`[Background] Deleting WebSocket with ID: ${requestId}`);
+
+  // Remove from collectedData
+  if (collectedData.webSockets) {
+    const initialLength = collectedData.webSockets.length;
+    // Use String() comparison to handle both number/string IDs safely
+    collectedData.webSockets = collectedData.webSockets.filter(ws => String(ws.id) !== String(requestId));
+
+    if (collectedData.webSockets.length < initialLength) {
+      console.log('[Background] Removed from collectedData');
+      await chrome.storage.local.set({ collectedData });
+    } else {
+      console.warn('[Background] ID not found in collectedData.webSockets');
+    }
+  }
+
+  // Remove from any active session
+  for (const [tabId, session] of attachedTabs) {
+    if (session.websockets) {
+      // iterate keys to find match since Map keys might be numbers or strings
+      let matchedKey = null;
+      for (const key of session.websockets.keys()) {
+        if (String(key) === String(requestId)) {
+          matchedKey = key;
+          break;
+        }
+      }
+
+      if (matchedKey) {
+        session.websockets.delete(matchedKey);
+        console.log(`[Background] Removed from session tab ${tabId}`);
+      }
+    }
+  }
 }

@@ -1,36 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;600;700&display=swap');
+
 :root {
-    /* Premium Dark Theme Palette */
-    --bg-app: #0f172a;
-    /* Deep Slate */
-    --bg-sidebar: #1e293b;
-    /* Slate 800 */
-    --bg-panel: #1e293b;
-    /* Slate 800 */
-    --bg-hover: #334155;
-    /* Slate 700 */
-    --bg-active: #475569;
-    /* Slate 600 */
-    --bg-input: #020617;
-    /* Darker input bg */
+    /* Premium Dark Theme Palette - "Midnight & Neon" */
+    --bg-app: #09090b;
+    /* Zinc 950 - Deeper black */
+    --bg-sidebar: #0f1218;
+    /* Slightly lighter/bluer dark */
+    --bg-panel: #11141d;
+    --bg-hover: #1f2536;
+    --bg-active: #272e42;
+    --bg-input: #050507;
 
-    --border-color: #334155;
-    /* Slate 700 */
-    --border-light: #475569;
-    /* Slate 600 */
+    --border-color: #232836;
+    --border-light: #32394d;
 
-    --text-primary: #f1f5f9;
-    /* Slate 100 */
+    --text-primary: #f8fafc;
+    /* Slate 50 */
     --text-secondary: #94a3b8;
     /* Slate 400 */
     --text-muted: #64748b;
     /* Slate 500 */
 
     /* Vibrant Accents */
-    --accent-primary: #3b82f6;
-    /* Blue 500 */
-    --accent-hover: #60a5fa;
-    /* Blue 400 */
-    --accent-dim: rgba(59, 130, 246, 0.15);
+    --accent-primary: #6366f1;
+    /* Indigo 500 - More modern than basic blue */
+    --accent-hover: #818cf8;
+    /* Indigo 400 */
+    --accent-dim: rgba(99, 102, 241, 0.15);
+
+    /* Gradient Accents */
+    --gradient-primary: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    --gradient-text: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
 
     /* Status Colors */
     --success: #10b981;
@@ -43,13 +43,27 @@
     /* Blue 500 */
 
     /* Typography */
+    --font-heading: 'Outfit', sans-serif;
     --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-mono: 'JetBrains Mono', monospace;
 
     /* Dimensions */
-    --header-height: 60px;
-    --sidebar-width: 260px;
-    --tab-height: 40px;
+    --header-height: 64px;
+    --sidebar-width: 280px;
+
+    /* Effects */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --glass-bg: rgba(15, 18, 24, 0.7);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.05);
+
+    /* Highlight Colors */
+    --highlight-red: rgba(239, 68, 68, 0.15);
+    --highlight-green: rgba(16, 185, 129, 0.15);
+    --highlight-blue: rgba(59, 130, 246, 0.15);
+    --highlight-yellow: rgba(245, 158, 11, 0.15);
+    --highlight-purple: rgba(168, 85, 247, 0.15);
 }
 
 * {
@@ -65,23 +79,24 @@ body {
     height: 100vh;
     overflow: hidden;
     font-size: 13px;
+    /* Reduced from 14px for more compact UI */
     line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
 }
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-app);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
     background: var(--border-color);
-    border-radius: 5px;
-    border: 2px solid var(--bg-app);
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -109,7 +124,7 @@ body {
     flex-direction: column;
     flex-shrink: 0;
     z-index: 20;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .logo-area {
@@ -119,30 +134,29 @@ body {
     padding: 0 24px;
     border-bottom: 1px solid var(--border-color);
     gap: 12px;
-    background: linear-gradient(to right, var(--bg-sidebar), var(--bg-app));
 }
 
 .logo-icon {
     font-size: 24px;
-    filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
+    filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.5));
 }
 
 .logo-text {
+    font-family: var(--font-heading);
     font-weight: 700;
-    font-size: 16px;
+    font-size: 18px;
     letter-spacing: -0.5px;
-    color: var(--text-primary);
-    background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+    background: var(--gradient-text);
     background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
 .nav-menu {
     flex: 1;
-    padding: 24px 12px;
+    padding: 24px 16px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     overflow-y: auto;
 }
 
@@ -155,44 +169,44 @@ body {
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.2s ease;
+    border-radius: 12px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: inherit;
     font-size: 14px;
     font-weight: 500;
     text-align: left;
     width: 100%;
     text-decoration: none;
-    /* For anchor tags */
+    position: relative;
+    overflow: hidden;
 }
 
 .nav-item:hover {
     background-color: var(--bg-hover);
     color: var(--text-primary);
-    transform: translateX(4px);
 }
 
 .nav-item.active {
-    background-color: var(--accent-primary);
+    background: var(--gradient-primary);
     color: white;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
 
 .nav-badge {
     margin-left: auto;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.15);
     padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    min-width: 24px;
+    border-radius: 10px;
+    font-size: 10px;
+    min-width: 20px;
     text-align: center;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .sidebar-footer {
     padding: 20px;
     border-top: 1px solid var(--border-color);
-    background-color: var(--bg-sidebar);
+    background-color: rgba(0, 0, 0, 0.2);
 }
 
 .connection-status {
@@ -202,9 +216,9 @@ body {
     font-size: 12px;
     color: var(--text-secondary);
     margin-bottom: 16px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     background: var(--bg-input);
-    border-radius: 6px;
+    border-radius: 10px;
     border: 1px solid var(--border-color);
 }
 
@@ -213,7 +227,7 @@ body {
     height: 8px;
     border-radius: 50%;
     background-color: var(--success);
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 10px var(--success);
     animation: pulse 2s infinite;
 }
 
@@ -223,7 +237,7 @@ body {
     }
 
     70% {
-        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
     }
 
     100% {
@@ -233,29 +247,30 @@ body {
 
 .action-buttons {
     display: flex;
-    gap: 10px;
+    gap: 12px;
 }
 
 .icon-btn {
     flex: 1;
-    height: 36px;
+    height: 40px;
     border: 1px solid var(--border-color);
     background-color: var(--bg-hover);
-    border-radius: 6px;
+    border-radius: 10px;
     cursor: pointer;
     color: var(--text-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    font-size: 16px;
+    font-size: 18px;
 }
 
 .icon-btn:hover {
     background-color: var(--bg-active);
     border-color: var(--text-secondary);
     color: var(--text-primary);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 .icon-btn.danger:hover {
@@ -272,6 +287,8 @@ body {
     background-color: var(--bg-app);
     overflow: hidden;
     position: relative;
+    /* subtle pattern overlay */
+    background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 400px);
 }
 
 /* Top Bar */
@@ -280,16 +297,25 @@ body {
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
-    padding: 0 24px;
+    padding: 0 32px;
     gap: 20px;
-    background-color: var(--bg-app);
-    backdrop-filter: blur(10px);
+    background: rgba(9, 9, 11, 0.8);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
-/* Responsive Media Queries */
+/* Responsive Styles */
+@media (max-width: 1024px) {
+    :root {
+        --sidebar-width: 240px;
+    }
+}
+
 @media (max-width: 768px) {
     .sidebar {
-        width: 60px;
+        width: 70px;
     }
 
     .logo-text,
@@ -300,12 +326,25 @@ body {
     }
 
     .logo-area {
-        padding: 0;
         justify-content: center;
+        padding: 0;
     }
 
     .nav-item {
         justify-content: center;
-        padding: 12px;
+        padding: 14px;
     }
+
+    .top-bar {
+        padding: 0 16px;
+    }
+}
+
+/* Specific overrides for Repeater Page to maintain "Old" design if needed */
+/* Since repeater uses its own full-page layout and specific classes, it should be mostly fine.
+   However, we might want to reset the font for the repeater area just in case. */
+.repeater-pane {
+    font-family: 'JetBrains Mono', 'Menlo', monospace !important;
+    background: #121212 !important;
+    /* Ensure it stays dark grey, not our new midnight blue */
 }

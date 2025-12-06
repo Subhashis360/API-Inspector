@@ -3,7 +3,6 @@ class WebSocketPage extends DashboardCommon {
         super();
         this.selectedItem = null;
         this.filters = { search: '' };
-        this.viewMode = 'pretty'; // 'pretty' or 'raw'
         this.elements = {
             wsList: document.getElementById('wsList'),
             detailsPane: document.getElementById('detailsPane'),
@@ -14,9 +13,7 @@ class WebSocketPage extends DashboardCommon {
             searchInput: document.getElementById('searchInput'),
             dragHandle: document.getElementById('dragHandle'),
             listPane: document.querySelector('.list-pane'),
-            viewToggle: document.getElementById('viewToggle'),
-            sendMessageBtn: document.getElementById('sendMessageBtn'),
-            messageInput: document.getElementById('messageInput')
+            listPane: document.querySelector('.list-pane')
         };
 
         this.setupPageListeners();
@@ -31,7 +28,6 @@ class WebSocketPage extends DashboardCommon {
                 this.selectedItem = updated;
                 this.renderDetails();
                 this.renderConnectionInfo();
-                this.updateSendButtonState();
             }
         }
     }
@@ -43,28 +39,7 @@ class WebSocketPage extends DashboardCommon {
             this.renderList();
         });
 
-        // View Toggle
-        this.elements.viewToggle.addEventListener('click', () => {
-            this.viewMode = this.viewMode === 'pretty' ? 'raw' : 'pretty';
-            this.elements.viewToggle.textContent = this.viewMode === 'pretty' ? '🔍 Raw' : '✨ Pretty';
-            this.renderDetails();
-        });
 
-        // Send Message
-        this.elements.sendMessageBtn.addEventListener('click', () => {
-            this.sendMessage();
-        });
-
-        this.elements.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
-
-        this.elements.messageInput.addEventListener('input', () => {
-            this.updateSendButtonState();
-        });
 
         // Resizer
         let isResizing = false;
@@ -111,107 +86,82 @@ class WebSocketPage extends DashboardCommon {
             menu.style.top = `${e.pageY}px`;
             document.body.appendChild(menu);
 
-            // Get the connection ID
-            const index = Array.from(this.elements.wsList.children).indexOf(wsItem);
-            const filtered = this.data.webSockets.filter(item => {
-                return !this.filters.search || item.url.toLowerCase().includes(this.filters.search);
-            });
-            filtered.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
-            const connection = filtered[index];
+            // Get the connection ID directly from the DOM element's data attribute
+            const connectionId = wsItem.getAttribute('data-id');
 
             // Handle menu click
-            menu.addEventListener('click', (e) => {
+            menu.addEventListener('click', async (e) => {
+                e.preventDefault(); // Prevent bubbling and default actions
+                e.stopPropagation();
+
                 const action = e.target.closest('.context-menu-item')?.dataset.action;
-                if (action === 'delete' && connection) {
-                    this.deleteConnection(connection.id);
+                console.log(`[WebSocket] Context menu action: ${action}, Connection ID: ${connectionId}`);
+
+                if (action === 'delete') {
+                    if (connectionId) {
+                        await this.deleteConnection(connectionId);
+                    } else {
+                        console.error('[WebSocket] No connection ID found for delete action');
+                        alert('Error: Could not identify connection to delete.');
+                    }
                 }
                 menu.remove();
             });
 
             // Close menu on outside click
             setTimeout(() => {
-                document.addEventListener('click', () => menu.remove(), { once: true });
+                const closeMenu = () => menu.remove();
+                document.addEventListener('click', closeMenu, { once: true });
+                // Also close on right click elsewhere
+                document.addEventListener('contextmenu', (evt) => {
+                    if (!menu.contains(evt.target)) closeMenu();
+                }, { once: true });
             }, 0);
         });
     }
 
-    deleteConnection(id) {
-        this.data.webSockets = this.data.webSockets.filter(ws => ws.id !== id);
-        if (this.selectedItem && this.selectedItem.id === id) {
-            this.selectedItem = null;
-            this.elements.detailsEmpty.classList.remove('hidden');
-            this.elements.detailsContent.classList.add('hidden');
-        }
-        this.saveData();
-        this.renderList();
-    }
+    async deleteConnection(id) {
+        console.log(`[WebSocket] Requesting deletion for ID: ${id}`);
 
-    updateSendButtonState() {
-        const message = this.elements.messageInput.value.trim();
-        const readyState = this.selectedItem ? this.getReadyState(this.selectedItem) : 3;
-        const isOpen = readyState === 1;
-        const hasMessage = message.length > 0;
+        // Optimistically remove from UI first to feel responsive
+        const originalList = this.data.webSockets; // Backup
 
-        this.elements.sendMessageBtn.disabled = !isOpen || !hasMessage;
+        try {
+            // Send message to background to delete from source and wait for confirmation
+            const response = await chrome.runtime.sendMessage({
+                action: 'deleteWebSocket',
+                requestId: id
+            });
 
-        if (!isOpen && this.selectedItem) {
-            const status = this.getConnectionStatus(readyState);
-            this.elements.sendMessageBtn.title = `Cannot send - Connection is ${status}`;
-        } else if (!hasMessage) {
-            this.elements.sendMessageBtn.title = 'Type a message to send';
-        } else {
-            this.elements.sendMessageBtn.title = 'Send message';
-        }
-    }
-
-    sendMessage() {
-        const message = this.elements.messageInput.value.trim();
-        if (!message || !this.selectedItem) return;
-
-        const tabId = this.selectedItem.tabId;
-        if (!tabId) {
-            alert('Cannot send message: Missing Tab ID. This connection may be from an old recording session. Please start a new recording.');
-            return;
-        }
-
-        const readyState = this.getReadyState(this.selectedItem);
-        if (readyState !== 1) {
-            const status = this.getConnectionStatus(readyState);
-            alert(`Cannot send message: WebSocket is ${status}. Messages can only be sent when the connection is Open.`);
-            return;
-        }
-
-        // Disable button while sending
-        this.elements.sendMessageBtn.disabled = true;
-        this.elements.sendMessageBtn.textContent = 'Sending...';
-
-        // Send to background script
-        chrome.runtime.sendMessage({
-            action: 'sendWebSocketMessage',
-            tabId: tabId,
-            requestId: this.selectedItem.id,
-            message: message
-        }, (response) => {
-            // Re-enable button
-            this.elements.sendMessageBtn.disabled = false;
-            this.elements.sendMessageBtn.textContent = 'Send →';
-
-            if (chrome.runtime.lastError) {
-                console.error('Failed to send:', chrome.runtime.lastError);
-                alert('Failed to send: ' + chrome.runtime.lastError.message);
+            if (!response || !response.success) {
+                console.error('Failed to delete WebSocket from background:', response?.error);
+                alert(`Failed to delete connection: ${response?.error || 'Unknown error'}`);
                 return;
             }
 
-            if (response && response.success) {
-                this.elements.messageInput.value = '';
-                this.updateSendButtonState();
-                // Force a refresh to show the sent message
-                setTimeout(() => this.loadData(), 100);
-            } else {
-                console.error('Failed to send:', response?.error);
-                alert('Failed to send message: ' + (response?.error || 'Unknown error'));
+            console.log(`[WebSocket] Deletion successful for ID: ${id}`);
+
+            // UI Update Logic
+            // Note: Background script will update storage, which triggers onDataUpdated via common.js
+            // But we can also manually filter local state to be faster
+            this.data.webSockets = this.data.webSockets.filter(ws => String(ws.id) !== String(id));
+
+            if (this.selectedItem && String(this.selectedItem.id) === String(id)) {
+                this.selectedItem = null;
+                this.elements.detailsEmpty.classList.remove('hidden');
+                this.elements.detailsContent.classList.add('hidden');
             }
-        });
+
+            this.renderList();
+
+        } catch (error) {
+            console.error('Error deleting WebSocket:', error);
+            alert('Error deleting WebSocket connection. check console for details.');
+        }
+    }
+
+    saveData() {
+        chrome.storage.local.set({ collectedData: this.data });
     }
 
     renderList() {
@@ -253,6 +203,8 @@ class WebSocketPage extends DashboardCommon {
     createWsListItem(item, isSelected) {
         const el = document.createElement('div');
         el.className = `ws-item ${isSelected ? 'selected' : ''}`;
+        // Store the WebSocket ID in the DOM element for easy retrieval
+        el.setAttribute('data-id', item.id);
 
         // Format timestamp properly - handle both timestamp formats
         let timestamp = 'N/A';
@@ -317,7 +269,6 @@ class WebSocketPage extends DashboardCommon {
         this.elements.detailsContent.classList.remove('hidden');
         this.renderConnectionInfo();
         this.renderDetails();
-        this.updateSendButtonState();
     }
 
     renderConnectionInfo() {
@@ -343,9 +294,9 @@ class WebSocketPage extends DashboardCommon {
 
         container.innerHTML = `
             <div class="info-grid">
-                <div class="info-item">
+                <div class="info-item full-width">
                     <div class="info-label">URL</div>
-                    <div class="info-value">${this.escapeHtml(item.url)}</div>
+                    <div class="info-value" title="${this.escapeHtml(item.url)}">${this.escapeHtml(item.url)}</div>
                 </div>
                 <div class="info-item">
                     <div class="info-label">Status</div>
@@ -426,19 +377,29 @@ class WebSocketPage extends DashboardCommon {
 
             const direction = msgType === 'send' ? '↑ Sent' : '↓ Received';
             const manualTag = msg.manual ? ' <span style="color: #9333EA;">(Manual)</span>' : '';
-            const dataSize = this.formatBytes(new TextEncoder().encode(msg.data).length);
 
-            let displayData = msg.data;
+            // Safe data handling
+            let safeData = msg.data;
+            if (typeof safeData === 'object') {
+                safeData = JSON.stringify(safeData);
+            } else if (safeData === undefined || safeData === null) {
+                safeData = '';
+            } else {
+                safeData = String(safeData);
+            }
+
+            const dataSize = this.formatBytes(new TextEncoder().encode(safeData).length);
+
+            let displayData = safeData;
             let isJson = false;
 
-            if (this.viewMode === 'pretty') {
-                try {
-                    const parsed = JSON.parse(msg.data);
-                    displayData = JSON.stringify(parsed, null, 2);
-                    isJson = true;
-                } catch (e) {
-                    // Not JSON
-                }
+            // Always try to pretty print if it looks like JSON
+            try {
+                const parsed = JSON.parse(safeData);
+                displayData = JSON.stringify(parsed, null, 2);
+                isJson = true;
+            } catch (e) {
+                // Not JSON or parse failed
             }
 
             el.innerHTML = `
@@ -447,7 +408,7 @@ class WebSocketPage extends DashboardCommon {
                     <span class="ws-msg-meta">#${index + 1} • ${timestamp} • ${dataSize}</span>
                 </div>
                 <div class="ws-msg-data ${isJson ? 'ws-json-data' : ''}">
-                    ${this.viewMode === 'pretty' && isJson ? this.syntaxHighlightJSON(displayData) : `<pre class="raw-pre">${this.escapeHtml(displayData)}</pre>`}
+                    ${isJson ? this.syntaxHighlightJson(displayData) : `<pre class="raw-pre">${this.escapeHtml(displayData)}</pre>`}
                 </div>
             `;
             container.appendChild(el);
@@ -462,29 +423,6 @@ class WebSocketPage extends DashboardCommon {
         const sizes = ['B', 'KB', 'MB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    syntaxHighlightJSON(json) {
-        let html = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const jsonRegex = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
-
-        html = html.replace(jsonRegex, function (match) {
-            let cls = 'json-number';
-            if (/^"/.test(match)) {
-                if (/:$/.test(match)) {
-                    cls = 'json-key';
-                } else {
-                    cls = 'json-string';
-                }
-            } else if (/true|false/.test(match)) {
-                cls = 'json-boolean';
-            } else if (/null/.test(match)) {
-                cls = 'json-null';
-            }
-            return '<span class="' + cls + '">' + match + '</span>';
-        });
-
-        return `<pre class="json-pre">${html}</pre>`;
     }
 }
 
