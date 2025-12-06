@@ -1,6 +1,7 @@
 let attachedTabs = new Map();
 let collectedData = { jsFiles: {}, apiCalls: [], webSockets: [] };
 let windowModeActive = false; // Track if window mode is active
+let deletedWebSocketIds = new Set(); // Track deleted WebSocket IDs to prevent re-adding
 
 function isJavaScriptFile(type, url) {
   if (!url) return false;
@@ -54,6 +55,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   if (action === 'clearData') {
     collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
+    deletedWebSocketIds.clear(); // Reset deleted IDs tracking
     chrome.storage.local.set({ collectedData });
     sendResponse({ success: true });
     return false;
@@ -627,6 +629,12 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 function updateWsStorage(entry) {
   if (!collectedData.webSockets) collectedData.webSockets = [];
 
+  // CRITICAL FIX: Don't re-add deleted WebSockets
+  if (deletedWebSocketIds.has(String(entry.id))) {
+    console.log(`[Background] Skipping update for deleted WebSocket: ${entry.id}`);
+    return;
+  }
+
   const index = collectedData.webSockets.findIndex(w => w.id === entry.id);
   if (index !== -1) collectedData.webSockets[index] = entry;
   else collectedData.webSockets.push(entry);
@@ -688,6 +696,18 @@ function handleWebSocketClosed(tabId, params, session) {
 
 async function deleteWebSocket(requestId) {
   console.log(`[Background] Deleting WebSocket with ID: ${requestId}`);
+
+  // CRITICAL FIX: Mark this ID as deleted to prevent re-adding
+  deletedWebSocketIds.add(String(requestId));
+  console.log(`[Background] Marked WebSocket ${requestId} as deleted`);
+
+  // FIX: Always reload collectedData from storage to ensure we have the latest state
+  try {
+    const stored = await chrome.storage.local.get(['collectedData']);
+    if (stored.collectedData) {
+      collectedData = stored.collectedData;
+    }
+  } catch (e) { console.error("Error fetching storage during delete:", e); }
 
   // Remove from collectedData
   if (collectedData.webSockets) {
