@@ -1,3 +1,6 @@
+// Import IndexedDB storage module
+importScripts('src/indexeddb.js');
+
 let attachedTabs = new Map();
 let collectedData = { jsFiles: {}, apiCalls: [], webSockets: [] };
 let windowModeActive = false; // Track if window mode is active
@@ -28,12 +31,14 @@ function matchesDomainOrSubdomain(hostname, targetDomain) {
   return false;
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({
+chrome.runtime.onInstalled.addListener(async () => {
+  // Initialize IndexedDB settings
+  await StorageDB.setSettings({
     isRecording: false,
-    collectedData: { apiCalls: [], jsFiles: {}, webSockets: [] },
     lastError: null
   });
+  // Data is now stored in IndexedDB object stores, not as a single 'collectedData' key
+  console.log('[Background] Extension installed/updated, IndexedDB initialized');
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -54,11 +59,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   if (action === 'clearData') {
-    collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
-    deletedWebSocketIds.clear(); // Reset deleted IDs tracking
-    chrome.storage.local.set({ collectedData });
-    sendResponse({ success: true });
-    return false;
+    clearAllData()
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true;
   }
   if (action === 'deleteWebSocket') {
     deleteWebSocket(request.requestId)
@@ -79,10 +83,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 
 
-function updateStorage(entry) {
-  if (!collectedData.apiCalls) collectedData.apiCalls = [];
+async function updateStorage(entry) {
+  // Use IndexedDB with automatic batching for optimal performance
+  // The batching mechanism will automatically flush after 100ms or 10 items
+  await StorageDB.addApiCall(entry);
 
-  // Check if entry exists
+  // Update in-memory cache for quick access
+  if (!collectedData.apiCalls) collectedData.apiCalls = [];
   const index = collectedData.apiCalls.findIndex(req => req.id === entry.id);
   if (index !== -1) {
     collectedData.apiCalls[index] = entry;
@@ -90,12 +97,10 @@ function updateStorage(entry) {
     collectedData.apiCalls.push(entry);
   }
 
-  // Optimize storage by keeping only last 2000 requests
+  // Optimize memory by keeping only last 2000 requests in memory
   if (collectedData.apiCalls.length > 2000) {
     collectedData.apiCalls.shift();
   }
-
-  chrome.storage.local.set({ collectedData });
 }
 
 // Helper to get hostname safely
@@ -120,17 +125,11 @@ async function doStartRecording(windowId, tabId, domain, captureAllRequests = fa
     if (captureAllRequests && windowId !== null) {
       windowModeActive = true;
 
-      // Load existing data
-      const stored = await chrome.storage.local.get(['collectedData']);
-      if (stored.collectedData) {
-        collectedData = stored.collectedData;
-        if (!collectedData.apiCalls) collectedData.apiCalls = [];
-        if (!collectedData.jsFiles) collectedData.jsFiles = {};
-        if (!collectedData.webSockets) collectedData.webSockets = [];
-      } else {
-        collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
-        await chrome.storage.local.set({ collectedData });
-      }
+      // Load existing data from IndexedDB
+      collectedData = await StorageDB.getCollectedData();
+      if (!collectedData.apiCalls) collectedData.apiCalls = [];
+      if (!collectedData.jsFiles) collectedData.jsFiles = {};
+      if (!collectedData.webSockets) collectedData.webSockets = [];
 
       // Attach to all tabs in the specified window
       const tabs = await chrome.tabs.query({ windowId: windowId });
@@ -203,16 +202,11 @@ async function attachToTab(tabId, domain, captureAllRequests) {
     }
   }
 
-  const stored = await chrome.storage.local.get(['collectedData']);
-  if (stored.collectedData) {
-    collectedData = stored.collectedData;
-    if (!collectedData.apiCalls) collectedData.apiCalls = [];
-    if (!collectedData.jsFiles) collectedData.jsFiles = {};
-    if (!collectedData.webSockets) collectedData.webSockets = [];
-  } else {
-    collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
-    await chrome.storage.local.set({ collectedData });
-  }
+  // Load existing data from IndexedDB
+  collectedData = await StorageDB.getCollectedData();
+  if (!collectedData.apiCalls) collectedData.apiCalls = [];
+  if (!collectedData.jsFiles) collectedData.jsFiles = {};
+  if (!collectedData.webSockets) collectedData.webSockets = [];
 
   await sendCommand(debuggee, "Network.enable", {
     maxResourceBufferSize: 100 * 1024 * 1024,
@@ -265,7 +259,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 });
 
 async function updateRecordingState(isRecording, domain, tabId, error, captureAllRequests = false) {
-  await chrome.storage.local.set({
+  await StorageDB.setSettings({
     isRecording,
     targetDomain: domain,
     captureAllRequests,
@@ -289,7 +283,7 @@ async function doStopRecording(tabId) {
     attachedTabs.delete(tid);
   }
 
-  await chrome.storage.local.set({ isRecording: false });
+  await StorageDB.setSetting('isRecording', false);
 }
 
 function attachDebugger(target, version) {
@@ -344,7 +338,7 @@ chrome.debugger.onDetach.addListener((source, reason) => {
     attachedTabs.delete(source.tabId);
     // Only stop recording if no tabs are attached and not in window mode
     if (attachedTabs.size === 0 && !windowModeActive) {
-      chrome.storage.local.set({ isRecording: false });
+      StorageDB.setSetting('isRecording', false);
     }
   }
 });
@@ -368,7 +362,7 @@ async function handleRequest(tabId, params, session) {
     } catch (e) { }
   }
 
-  // ULTRA-STRICT FILTER: ONLY capture XHR, Fetch, WebSocket requests
+  // ULTRA-STRICT FILTER: Basic security and noise reduction
   const urlLower = url.toLowerCase();
 
   // Only allow http/https URLs
@@ -377,25 +371,9 @@ async function handleRequest(tabId, params, session) {
     return;
   }
 
-  // ONLY allow XHR, Fetch, and WebSocket types - block EVERYTHING else
-  if (type !== 'XHR' && type !== 'Fetch' && type !== 'WebSocket') {
-    console.log(`[API Inspector] ❌ Blocked type ${type}: ${url}`);
-    return;
-  }
-
-  // Additional safety: Block static file extensions
-  const staticExtensions = /\.(png|jpg|jpeg|gif|svg|wasm|ico|webp|bmp|css|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac|json|xml|js|mjs|jsx|ts|tsx|map|pdf|zip|rar|tar|gz|7z)$/i;
-  if (staticExtensions.test(urlLower.split('?')[0])) {
-    console.log(`[API Inspector] ❌ Blocked extension: ${url}`);
-    return;
-  }
-
-  // Block static asset paths
-  const staticPaths = /\/(images?|img|assets|static|media|fonts?|css|styles?|js|javascripts?|scripts?|icons?|files?)\//i;
-  if (staticPaths.test(urlLower)) {
-    console.log(`[API Inspector] ❌ Blocked path: ${url}`);
-    return;
-  }
+  // REMOVED: Type-based filter
+  // Now capturing ALL file types (JS, CSS, Images, etc.)
+  // Filters control display only, not capture
 
   // Layer 4: Block Analytics, Tracking, and Push Notifications
   // Blocks common services: Google Analytics, GTM, Firebase, OneSignal, Segment, Mixpanel, etc.
@@ -408,7 +386,7 @@ async function handleRequest(tabId, params, session) {
     'hotjar', 'clarity', 'sentry', 'newrelic', 'datadog',
     'collect', 'measure', 'beacon',
     // Added based on user feedback:
-    'notifyvisitors', 'clevertap', 'accounts.google.com', 'heatmaps', 'event-api'
+    'notifyvisitors', 'clevertap', 'heatmaps', 'event-api', 'google.com/xjs', 'gstatic.com/_/mss', 'connect.facebook.net/signals'
   ];
 
   if (trackingPatterns.some(p => urlLower.includes(p))) {
@@ -426,6 +404,9 @@ async function handleRequest(tabId, params, session) {
       requestDomain = urlObj.hostname.replace(/^www\./, '');
       console.log(`[API Inspector] Using request hostname as fallback source: ${requestDomain}`);
     } catch (e) { }
+  } else {
+    // Normalize: Always strip www. prefix for consistent grouping
+    requestDomain = requestDomain.replace(/^www\./, '');
   }
 
   if (!session.captureAllRequests && session.domain) {
@@ -531,11 +512,7 @@ function handleWebSocketCreated(tabId, params, session) {
   session.websockets.set(requestId, wsEntry);
   updateWsStorage(wsEntry);
 
-  if (collectedData.apiCalls.length > 10000) collectedData.apiCalls.shift();
-
-
-
-  chrome.storage.local.set({ collectedData });
+  // Removed: IndexedDB handles storage automatically via batching
 }
 
 // Function to send WebSocket messages
@@ -626,7 +603,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-function updateWsStorage(entry) {
+async function updateWsStorage(entry) {
   if (!collectedData.webSockets) collectedData.webSockets = [];
 
   // CRITICAL FIX: Don't re-add deleted WebSockets
@@ -635,13 +612,16 @@ function updateWsStorage(entry) {
     return;
   }
 
+  // Use IndexedDB with automatic batching
+  await StorageDB.addWebSocket(entry);
+
+  // Update in-memory cache
   const index = collectedData.webSockets.findIndex(w => w.id === entry.id);
   if (index !== -1) collectedData.webSockets[index] = entry;
   else collectedData.webSockets.push(entry);
 
+  // Optimize memory by keeping only last 1000 WebSockets in memory
   if (collectedData.webSockets.length > 1000) collectedData.webSockets.shift();
-
-  chrome.storage.local.set({ collectedData });
 }
 
 function handleWebSocketHandshakeResponse(tabId, params, session) {
@@ -701,32 +681,29 @@ async function deleteWebSocket(requestId) {
   deletedWebSocketIds.add(String(requestId));
   console.log(`[Background] Marked WebSocket ${requestId} as deleted`);
 
-  // FIX: Always reload collectedData from storage to ensure we have the latest state
+  // Delete from IndexedDB
   try {
-    const stored = await chrome.storage.local.get(['collectedData']);
-    if (stored.collectedData) {
-      collectedData = stored.collectedData;
-    }
-  } catch (e) { console.error("Error fetching storage during delete:", e); }
+    await StorageDB.deleteWebSocket(requestId);
+    console.log('[Background] Deleted from IndexedDB');
+  } catch (e) {
+    console.error("Error deleting from IndexedDB:", e);
+  }
 
-  // Remove from collectedData
+  // Remove from in-memory cache
   if (collectedData.webSockets) {
     const initialLength = collectedData.webSockets.length;
-    // Use String() comparison to handle both number/string IDs safely
     collectedData.webSockets = collectedData.webSockets.filter(ws => String(ws.id) !== String(requestId));
 
     if (collectedData.webSockets.length < initialLength) {
-      console.log('[Background] Removed from collectedData');
-      await chrome.storage.local.set({ collectedData });
+      console.log('[Background] Removed from in-memory cache');
     } else {
-      console.warn('[Background] ID not found in collectedData.webSockets');
+      console.warn('[Background] ID not found in in-memory cache');
     }
   }
 
   // Remove from any active session
   for (const [tabId, session] of attachedTabs) {
     if (session.websockets) {
-      // iterate keys to find match since Map keys might be numbers or strings
       let matchedKey = null;
       for (const key of session.websockets.keys()) {
         if (String(key) === String(requestId)) {
@@ -741,4 +718,22 @@ async function deleteWebSocket(requestId) {
       }
     }
   }
+}
+
+/**
+ * Clear all collected data (API calls and WebSockets)
+ */
+async function clearAllData() {
+  console.log('[Background] Clearing all data...');
+
+  // Clear IndexedDB
+  await StorageDB.clearAllData();
+
+  // Clear in-memory cache
+  collectedData = { apiCalls: [], jsFiles: {}, webSockets: [] };
+
+  // Reset deleted WebSocket IDs tracking
+  deletedWebSocketIds.clear();
+
+  console.log('[Background] All data cleared successfully');
 }

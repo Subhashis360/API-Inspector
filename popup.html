@@ -4,149 +4,205 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>API Inspector Pro</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>API Inspector</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700&display=swap"
+    rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #050505;
-      --bg-secondary: #111111;
-      --bg-card: #1a1a1a;
-      --accent-primary: #3b82f6;
-      --accent-glow: rgba(59, 130, 246, 0.5);
-      --text-primary: #ffffff;
-      --text-secondary: #a1a1aa;
-      --border-color: #333333;
+      --bg-primary: #09090b;
+      --bg-secondary: #0f1218;
+      --bg-card: #11141d;
+      --bg-hover: #1f2536;
+      --bg-glass: rgba(15, 18, 24, 0.85);
+
+      --accent-primary: #FFC107;
+      --accent-hover: #FFD54F;
+      --accent-glow: rgba(255, 193, 7, 0.4);
+      --accent-dim: rgba(255, 193, 7, 0.12);
+
+      --gradient-yellow: linear-gradient(135deg, #FFC107 0%, #FFB300 100%);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --border-color: #232836;
+      --border-light: #32394d;
+
       --success: #10b981;
       --danger: #ef4444;
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.15);
+      --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.2);
+      --shadow-glow: 0 0 16px rgba(255, 193, 7, 0.25);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
 
     body {
-      width: 400px;
-      margin: 0;
-      padding: 0;
+      width: 380px;
+      min-height: 420px;
       font-family: 'Inter', sans-serif;
-      background-color: var(--bg-primary);
+      background: var(--bg-primary);
       color: var(--text-primary);
       overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
     .container {
       display: flex;
       flex-direction: column;
       padding: 20px;
-      gap: 20px;
+      gap: 18px;
     }
 
-    /* Header */
+    /* Compact Header */
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-bottom: 15px;
+      padding-bottom: 16px;
       border-bottom: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 60px;
+      height: 2px;
+      background: var(--gradient-yellow);
+      box-shadow: var(--shadow-glow);
     }
 
     .logo {
-      font-size: 18px;
-      font-weight: 700;
-      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-      background-clip: text;
-      -webkit-background-clip: text;
-      color: transparent;
-      letter-spacing: 0.5px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
-    .logo::before {
-      content: '⚡';
-      -webkit-text-fill-color: initial;
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gradient-yellow);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
       font-size: 16px;
     }
 
+    .logo-text {
+      font-family: 'Outfit', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #FFD700 0%, #FFC107 50%, #FFB300 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.3px;
+    }
+
     .status-badge {
-      font-size: 11px;
-      padding: 4px 8px;
+      font-size: 9px;
+      padding: 4px 10px;
       border-radius: 12px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
     }
 
     .status-badge.stopped {
-      background: rgba(239, 68, 68, 0.1);
+      background: rgba(239, 68, 68, 0.12);
       color: var(--danger);
       border: 1px solid rgba(239, 68, 68, 0.2);
     }
 
     .status-badge.recording {
-      background: rgba(16, 185, 129, 0.1);
+      background: rgba(16, 185, 129, 0.12);
       color: var(--success);
-      border: 1px solid rgba(16, 185, 129, 0.2);
-      box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
       animation: pulse 2s infinite;
     }
 
-    /* Mode Selection */
-    .mode-selection {
+    /* Segmented Control for Modes */
+    .mode-selector {
       display: flex;
-      flex-direction: column;
-      gap: 10px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+      position: relative;
     }
 
-    .radio-card {
+    .mode-option {
+      flex: 1;
+      position: relative;
+    }
+
+    .mode-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .mode-label {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
+      justify-content: center;
+      padding: 12px 10px;
       border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      background: transparent;
+      border: 1px solid transparent;
     }
 
-    .radio-card:hover {
+    .mode-option input:checked+.mode-label {
+      background: var(--accent-dim);
       border-color: var(--accent-primary);
-      background: var(--bg-card);
+      box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.08);
     }
 
-    .radio-card input[type="radio"] {
-      accent-color: var(--accent-primary);
-      width: 18px;
-      height: 18px;
-      margin: 0;
+    .mode-icon {
+      font-size: 16px;
+      margin-bottom: 3px;
+      opacity: 0.7;
+      transition: opacity 0.2s;
     }
 
-    .radio-content {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+    .mode-option input:checked+.mode-label .mode-icon {
+      opacity: 1;
     }
 
-    .radio-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .radio-desc {
+    .mode-title {
       font-size: 11px;
+      font-weight: 600;
       color: var(--text-secondary);
+      text-align: center;
+      line-height: 1.2;
+      transition: color 0.2s;
     }
 
-    /* Controls */
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    .mode-option input:checked+.mode-label .mode-title {
+      color: var(--accent-primary);
     }
 
+    /* Compact Input Section */
     .input-section {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       animation: fadeIn 0.3s ease;
     }
 
@@ -157,168 +213,262 @@
     }
 
     label {
-      font-size: 11px;
-      color: var(--text-secondary);
-      font-weight: 500;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    select,
     input[type="text"] {
       background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
+      border: 1.5px solid var(--border-color);
       color: var(--text-primary);
-      padding: 10px;
+      padding: 10px 12px;
       border-radius: 8px;
       font-size: 13px;
       outline: none;
-      transition: border-color 0.2s;
+      transition: all 0.2s;
+      font-family: inherit;
     }
 
-    select:focus,
     input[type="text"]:focus {
       border-color: var(--accent-primary);
+      box-shadow: 0 0 0 3px var(--accent-dim);
     }
 
+    /* Compact Checkbox */
     .checkbox-wrapper {
       display: flex;
       align-items: center;
       gap: 10px;
       cursor: pointer;
-      padding: 8px;
-      background: var(--bg-secondary);
+      padding: 9px 12px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
       border-radius: 8px;
       border: 1px solid var(--border-color);
+      transition: all 0.2s;
+    }
+
+    .checkbox-wrapper:hover {
+      border-color: var(--border-light);
     }
 
     input[type="checkbox"] {
-      accent-color: var(--accent-primary);
+      appearance: none;
       width: 16px;
       height: 16px;
+      border: 2px solid var(--border-light);
+      border-radius: 4px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    input[type="checkbox"]:checked {
+      background: var(--gradient-yellow);
+      border-color: var(--accent-primary);
+    }
+
+    input[type="checkbox"]:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--bg-primary);
+      font-size: 10px;
+      font-weight: 800;
     }
 
     .checkbox-label {
       font-size: 12px;
       color: var(--text-primary);
       text-transform: none;
+      font-weight: 500;
     }
 
     /* Info Box */
     .info-box {
       font-size: 11px;
       color: var(--text-secondary);
-      padding: 10px;
-      background: rgba(59, 130, 246, 0.1);
-      border-left: 3px solid var(--accent-primary);
-      border-radius: 4px;
+      padding: 10px 12px;
+      background: var(--accent-dim);
+      border-left: 2px solid var(--accent-primary);
+      border-radius: 6px;
       line-height: 1.4;
+      font-weight: 500;
     }
 
-    /* Main Action Button */
+    /* Compact Action Buttons */
     .action-btn {
       width: 100%;
       padding: 14px;
       border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       position: relative;
       overflow: hidden;
+      font-family: inherit;
     }
 
     .btn-start {
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      color: white;
-      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+      background: var(--gradient-yellow);
+      color: #1a1a1a;
+      box-shadow: 0 3px 12px rgba(255, 193, 7, 0.35);
+      margin-top: 6px;
     }
 
     .btn-start:hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+      box-shadow: 0 6px 16px rgba(255, 193, 7, 0.45);
     }
 
     .btn-stop {
       background: linear-gradient(135deg, #ef4444, #dc2626);
       color: white;
-      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+      box-shadow: 0 3px 12px rgba(239, 68, 68, 0.35);
     }
 
     .btn-stop:hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+      box-shadow: 0 6px 16px rgba(239, 68, 68, 0.45);
     }
 
     .btn-dashboard {
       background: var(--bg-card);
-      color: var(--text-primary);
-      border: 1px solid var(--border-color);
-      margin-top: 10px;
+      color: var(--text-secondary);
+      border: 1.5px solid var(--border-color);
+      padding: 10px;
+      font-size: 12px;
     }
 
     .btn-dashboard:hover {
       border-color: var(--accent-primary);
-      background: var(--bg-secondary);
+      color: var(--accent-primary);
     }
 
-    /* Recording View */
+    /* Compact Recording View */
     .recording-view {
       display: flex;
       flex-direction: column;
-      gap: 15px;
-      align-items: center;
-      text-align: center;
-      padding: 20px 0;
+      gap: 16px;
     }
 
-    .pulse-ring {
-      width: 60px;
-      height: 60px;
+    .recording-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .pulse-indicator {
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      background: rgba(16, 185, 129, 0.1);
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.15), transparent);
       border: 2px solid var(--success);
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
-      margin-bottom: 10px;
+      flex-shrink: 0;
+      animation: ringPulse 2s ease-in-out infinite;
     }
 
-    .pulse-ring::after {
+    .pulse-indicator::after {
       content: '';
       position: absolute;
       width: 100%;
       height: 100%;
       border-radius: 50%;
       border: 2px solid var(--success);
-      animation: ripple 1.5s infinite;
+      animation: ripple 2s infinite;
     }
 
     .pulse-icon {
-      font-size: 24px;
+      font-size: 20px;
+      filter: drop-shadow(0 2px 4px rgba(16, 185, 129, 0.5));
     }
 
+    .recording-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .recording-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .target-url {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-primary);
+      font-size: 11px;
+      word-break: break-all;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    /* Compact Stats Grid */
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      width: 100%;
     }
 
     .stat-card {
-      background: var(--bg-secondary);
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
       padding: 12px;
-      border-radius: 8px;
+      border-radius: 10px;
       border: 1px solid var(--border-color);
+      text-align: center;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--gradient-yellow);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .stat-card:hover::before {
+      opacity: 1;
     }
 
     .stat-value {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text-primary);
+      font-size: 24px;
+      font-weight: 800;
+      background: var(--gradient-yellow);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-family: 'Outfit', sans-serif;
+      line-height: 1.2;
     }
 
     .stat-label {
@@ -326,37 +476,38 @@
       color: var(--text-secondary);
       text-transform: uppercase;
       margin-top: 4px;
-    }
-
-    .target-url {
-      font-family: monospace;
-      color: var(--accent-primary);
-      font-size: 12px;
-      word-break: break-all;
-      background: rgba(59, 130, 246, 0.1);
-      padding: 8px;
-      border-radius: 4px;
-      width: 100%;
+      font-weight: 600;
+      letter-spacing: 0.3px;
     }
 
     @keyframes pulse {
-      0% {
+
+      0%,
+      100% {
         opacity: 1;
       }
 
       50% {
-        opacity: 0.6;
+        opacity: 0.7;
+      }
+    }
+
+    @keyframes ringPulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
       }
 
-      100% {
-        opacity: 1;
+      50% {
+        box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
       }
     }
 
     @keyframes ripple {
       0% {
         transform: scale(1);
-        opacity: 0.8;
+        opacity: 0.6;
       }
 
       100% {
@@ -368,7 +519,7 @@
     @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(-5px);
+        transform: translateY(-6px);
       }
 
       to {
@@ -380,93 +531,111 @@
     .hidden {
       display: none !important;
     }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 2px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
   </style>
 </head>
 
 <body>
   <div class="container">
-    <!-- Header -->
+    <!-- Compact Header -->
     <div class="header">
-      <div class="logo">API Inspector Pro</div>
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">API Inspector</div>
+      </div>
       <div id="statusBadge" class="status-badge stopped">Stopped</div>
     </div>
 
     <!-- Setup View -->
     <div id="setupView">
-      <div class="control-group">
-
-        <!-- Target Selection Mode -->
-        <div class="mode-selection">
-          <label class="radio-card">
-            <input type="radio" name="targetMode" value="custom" checked>
-            <div class="radio-content">
-              <span class="radio-title">Custom URL</span>
-              <span class="radio-desc">Enter a specific URL to record</span>
-            </div>
-          </label>
-
-          <label class="radio-card">
-            <input type="radio" name="targetMode" value="current">
-            <div class="radio-content">
-              <span class="radio-title">Current Tab</span>
-              <span class="radio-desc">Record the active tab</span>
-            </div>
-          </label>
-
-          <label class="radio-card">
-            <input type="radio" name="targetMode" value="window">
-            <div class="radio-content">
-              <span class="radio-title">Whole Window</span>
-              <span class="radio-desc">Capture all requests (Current Tab)</span>
-            </div>
+      <!-- Segmented Mode Selector -->
+      <div class="mode-selector">
+        <div class="mode-option">
+          <input type="radio" name="targetMode" value="custom" id="modeCustom" checked>
+          <label for="modeCustom" class="mode-label">
+            <span class="mode-icon">🌐</span>
+            <span class="mode-title">Custom</span>
           </label>
         </div>
-
-        <!-- Custom URL Inputs -->
-        <div id="customUrlSection" class="input-section">
-          <div class="input-wrapper">
-            <label>Target URL</label>
-            <input type="text" id="customUrl" placeholder="https://example.com">
-          </div>
-          <label class="checkbox-wrapper">
-            <input type="checkbox" id="openAutomatically" checked>
-            <span class="checkbox-label">Open site automatically</span>
+        <div class="mode-option">
+          <input type="radio" name="targetMode" value="current" id="modeCurrent">
+          <label for="modeCurrent" class="mode-label">
+            <span class="mode-icon">📄</span>
+            <span class="mode-title">Current</span>
           </label>
         </div>
-
-        <!-- Current Tab Info -->
-        <div id="currentTabSection" class="input-section hidden">
-          <div class="input-wrapper">
-            <label>Current Tab URL</label>
-            <div id="currentUrlDisplay" class="target-url">Detecting...</div>
-          </div>
-        </div>
-
-        <!-- Options -->
-        <div id="optionsSection" class="input-section"
-          style="border-top: 1px solid var(--border-color); padding-top: 15px;">
-          <label class="checkbox-wrapper" id="subdomainWrapper">
-            <input type="checkbox" id="includeSubdomains" checked>
-            <span class="checkbox-label">Capture Subdomains</span>
+        <div class="mode-option">
+          <input type="radio" name="targetMode" value="window" id="modeWindow">
+          <label for="modeWindow" class="mode-label">
+            <span class="mode-icon">🪟</span>
+            <span class="mode-title">Window</span>
           </label>
         </div>
-
-        <div id="targetInfo" class="info-box hidden"></div>
-
-        <button id="startBtn" class="action-btn btn-start">Start Recording</button>
       </div>
+
+      <!-- Custom URL Inputs -->
+      <div id="customUrlSection" class="input-section">
+        <div class="input-wrapper">
+          <label>Target URL</label>
+          <input type="text" id="customUrl" placeholder="https://example.com">
+        </div>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="openAutomatically" checked>
+          <span class="checkbox-label">Open automatically</span>
+        </label>
+      </div>
+
+      <!-- Current Tab Info -->
+      <div id="currentTabSection" class="input-section hidden">
+        <div class="input-wrapper">
+          <label>Current Tab URL</label>
+          <div id="currentUrlDisplay" class="target-url"
+            style="padding: 10px 12px; background: var(--accent-dim); border-radius: 8px; border: 1px solid rgba(255, 193, 7, 0.2);">
+            Detecting...</div>
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div id="optionsSection" class="input-section"
+        style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+        <label class="checkbox-wrapper" id="subdomainWrapper">
+          <input type="checkbox" id="includeSubdomains" checked>
+          <span class="checkbox-label">Capture subdomains</span>
+        </label>
+      </div>
+
+      <div id="targetInfo" class="info-box hidden"></div>
+
+      <button id="startBtn" class="action-btn btn-start">Start Recording</button>
     </div>
 
-    <!-- Recording View -->
+    <!-- Compact Recording View -->
     <div id="recordingView" class="hidden">
       <div class="recording-view">
-        <div class="pulse-ring">
-          <span class="pulse-icon">📡</span>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 5px; width: 100%;">
-          <label>Monitoring</label>
-          <div id="recordingTarget" class="target-url">...</div>
+        <div class="recording-header">
+          <div class="pulse-indicator">
+            <span class="pulse-icon">📡</span>
+          </div>
+          <div class="recording-info">
+            <div class="recording-label">Monitoring</div>
+            <div id="recordingTarget" class="target-url">...</div>
+          </div>
         </div>
 
         <div class="stats-grid">
@@ -487,6 +656,8 @@
     <button id="dashboardBtn" class="action-btn btn-dashboard">Open Dashboard</button>
   </div>
 
+  <!-- IndexedDB Storage Module -->
+  <script src="src/indexeddb.js"></script>
   <script src="popup.js"></script>
 </body>
 

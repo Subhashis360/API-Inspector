@@ -64,6 +64,11 @@
     --highlight-blue: rgba(59, 130, 246, 0.15);
     --highlight-yellow: rgba(245, 158, 11, 0.15);
     --highlight-purple: rgba(168, 85, 247, 0.15);
+
+    /* Material Design Colors for Search Bar */
+    --accent: #44a2ff;
+    --accent-surface: #253145;
+    --neutral: #5e5e5e;
 }
 
 * {
@@ -341,10 +346,4 @@ body {
 }
 
 /* Specific overrides for Repeater Page to maintain "Old" design if needed */
-/* Since repeater uses its own full-page layout and specific classes, it should be mostly fine.
-   However, we might want to reset the font for the repeater area just in case. */
-.repeater-pane {
-    font-family: 'JetBrains Mono', 'Menlo', monospace !important;
-    background: #121212 !important;
-    /* Ensure it stays dark grey, not our new midnight blue */
-}
+/* Overrides removed to apply new theme design */

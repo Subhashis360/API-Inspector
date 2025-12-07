@@ -1,6 +1,11 @@
 class DashboardCommon {
     constructor() {
         this.data = { apiCalls: [], jsFiles: {}, webSockets: [] };
+        if (!self.StorageDB) {
+            console.error('StorageDB not found! Check if indexeddb.js is loaded.');
+            return;
+        }
+        this.storageDB = self.StorageDB; // Access IndexedDB (works in all contexts)
         this.setupCommonListeners();
         this.loadData();
         this.updateConnectionStatus(false);
@@ -18,30 +23,75 @@ class DashboardCommon {
         if (exportBtn) exportBtn.addEventListener('click', () => this.exportData());
         if (clearBtn) clearBtn.addEventListener('click', () => this.clearData());
 
-        // Connection Status
-        chrome.storage.onChanged.addListener((changes, namespace) => {
-            if (namespace === 'local') {
-                if (changes.collectedData) {
-                    this.data = changes.collectedData.newValue || { apiCalls: [], jsFiles: {}, webSockets: [] };
-                    this.updateCounts();
-                    if (this.onDataUpdated) this.onDataUpdated();
+        // Listen for IndexedDB changes
+        this.storageDB.addChangeListener((changes) => {
+            if (changes.collectedData) {
+                const updates = changes.collectedData.newValue;
+                const hasUpdates = (updates && (updates.apiCalls?.length > 0 || updates.webSockets?.length > 0));
+
+                if (hasUpdates) {
+                    this.handleIncrementalUpdate(updates);
+                } else {
+                    // Full reload for deletes or clears
+                    this.loadData();
                 }
-                if (changes.isRecording) {
-                    this.updateConnectionStatus(changes.isRecording.newValue);
-                }
+            }
+            if (changes.isRecording) {
+                this.updateConnectionStatus(changes.isRecording.newValue);
             }
         });
     }
 
-    loadData() {
-        chrome.storage.local.get(['collectedData', 'isRecording'], (result) => {
-            if (result.collectedData) {
-                this.data = result.collectedData;
-                this.updateCounts();
-                if (this.onDataUpdated) this.onDataUpdated();
-            }
-            this.updateConnectionStatus(result.isRecording);
-        });
+    handleIncrementalUpdate(updates) {
+        // Merge API calls
+        if (updates.apiCalls && updates.apiCalls.length > 0) {
+            if (!this.data.apiCalls) this.data.apiCalls = [];
+
+            updates.apiCalls.forEach(ne => {
+                const idx = this.data.apiCalls.findIndex(e => e.id === ne.id);
+                if (idx !== -1) {
+                    this.data.apiCalls[idx] = ne; // Update
+                } else {
+                    this.data.apiCalls.push(ne); // Add
+                }
+            });
+        }
+
+        // Merge WebSockets
+        if (updates.webSockets && updates.webSockets.length > 0) {
+            if (!this.data.webSockets) this.data.webSockets = [];
+
+            updates.webSockets.forEach(ne => {
+                const idx = this.data.webSockets.findIndex(e => e.id === ne.id);
+                if (idx !== -1) {
+                    this.data.webSockets[idx] = ne; // Update
+                } else {
+                    this.data.webSockets.push(ne); // Add
+                }
+            });
+        }
+
+        this.updateCounts();
+
+        // Notify page subclass
+        if (this.onItemsAdded) {
+            this.onItemsAdded(updates);
+        } else if (this.onDataUpdated) {
+            this.onDataUpdated();
+        }
+    }
+
+    async loadData() {
+        try {
+            this.data = await this.storageDB.getCollectedData();
+            this.updateCounts();
+            if (this.onDataUpdated) this.onDataUpdated();
+
+            const isRecording = await this.storageDB.getSetting('isRecording');
+            this.updateConnectionStatus(isRecording);
+        } catch (error) {
+            console.error('[Dashboard] Error loading data:', error);
+        }
     }
 
     updateCounts() {
@@ -84,19 +134,27 @@ class DashboardCommon {
         a.click();
     }
 
-    importData(e) {
+    async importData(e) {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
             try {
                 const imported = JSON.parse(event.target.result);
-                if (imported.apiCalls) {
-                    this.data = imported;
-                    chrome.storage.local.set({ collectedData: this.data });
+                if (imported.apiCalls || imported.webSockets) {
+                    // Import API calls
+                    if (imported.apiCalls && imported.apiCalls.length > 0) {
+                        await this.storageDB.batchAddApiCalls(imported.apiCalls);
+                    }
+                    // Import WebSockets
+                    if (imported.webSockets && imported.webSockets.length > 0) {
+                        await this.storageDB.batchAddWebSockets(imported.webSockets);
+                    }
+                    // Reload data
+                    await this.loadData();
                 }
             } catch (err) {
-                alert('Error parsing JSON');
+                alert('Error parsing JSON: ' + err.message);
             }
         };
         reader.readAsText(file);
@@ -164,6 +222,19 @@ class DashboardCommon {
         if (parts.length > 1) {
             // The last part is likely the body
             let body = parts.slice(1).join('\n\n');
+
+            // Check headers for Content-Type
+            const headersPart = parts[0];
+            const isJs = /Content-Type:.*(javascript|x-javascript)/i.test(headersPart);
+
+            if (isJs) {
+                // Unescape to get raw body for formatting
+                const unescaped = text.split('\n\n').slice(1).join('\n\n');
+                const highlightedBody = this.syntaxHighlightJs(unescaped);
+                parts[parts.length - 1] = highlightedBody;
+                return parts.join('\n\n');
+            }
+
             // Try to highlight if it looks like JSON
             if (body.trim().startsWith('{') || body.trim().startsWith('[')) {
                 // We need to unescape to parse, then re-highlight
@@ -177,6 +248,63 @@ class DashboardCommon {
                 }
             }
         }
+
+        return safeText;
+    }
+
+    syntaxHighlightJs(code) {
+        if (!code) return '';
+
+        // 1. Basic Formatting (Pretty Print)
+        // Simple indentation based on braces. Not a full parser but good for readability.
+        let formatted = '';
+        let indentLevel = 0;
+        const indentString = '  '; // 2 spaces
+
+        // Remove existing indentation to start fresh if it looks minified or messy
+        // But be careful not to break strings. 
+        // For safety, we'll process char by char or line by line if we had a full parser.
+        // A simple approach: 
+        // If code is one line (minified), split by { ; }
+        const isMinified = code.split('\n').length <= 2 && code.length > 100;
+
+        if (isMinified) {
+            let temp = code.replace(/\{/g, '{\n').replace(/\}/g, '\n}\n').replace(/;/g, ';\n');
+            // Naive rebuild
+            const lines = temp.split('\n');
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+
+                if (line.includes('}')) indentLevel = Math.max(0, indentLevel - 1);
+
+                formatted += indentString.repeat(indentLevel) + line + '\n';
+
+                if (line.includes('{')) indentLevel++;
+            });
+        } else {
+            formatted = code; // Already formatted? Keep it.
+        }
+
+        // 2. Syntax Highlighting
+        let safeText = this.escapeHtml(formatted);
+
+        // Keywords
+        const keywords = 'break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|let|static|enum|await|async';
+        safeText = safeText.replace(new RegExp(`\\b(${keywords})\\b`, 'g'), '<span class="js-keyword">$1</span>');
+
+        // Functions (word followed by ()
+        safeText = safeText.replace(/\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g, '<span class="js-function">$1</span>(');
+
+        // Strings (double and single quotes) - Simple regex, doesn't handle all escapes perfectly but okay for view
+        safeText = safeText.replace(/(".*?"|'.*?')/g, '<span class="js-string">$1</span>');
+
+        // Comments (// and /* */)
+        safeText = safeText.replace(/(\/\/.*$)/gm, '<span class="js-comment">$1</span>');
+        safeText = safeText.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="js-comment">$1</span>');
+
+        // Numbers
+        safeText = safeText.replace(/\b(\d+)\b/g, '<span class="js-number">$1</span>');
 
         return safeText;
     }

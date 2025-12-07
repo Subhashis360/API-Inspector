@@ -59,7 +59,69 @@
             <!-- Repeater Pane -->
             <div class="repeater-pane" id="repeaterPane">
                 <div class="repeater-tabs-bar" id="repeaterTabsBar">
+                    <div id="repeaterTabsContainer" class="tabs-container">
+                        <!-- Tabs will be injected here -->
+                    </div>
                     <button class="add-tab-btn" id="addRepeaterTab">+</button>
+                    <div class="tabs-spacer"></div>
+                    <button class="settings-btn" id="repeaterSettingsBtn" title="Repeater Settings">
+                        <span class="settings-icon">⚙️</span>
+                    </button>
+                </div>
+                <!-- Settings Modal -->
+                <div id="settingsModal" class="modal-overlay hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2>Repeater Settings</h2>
+                            <button id="closeSettingsModal" class="close-modal">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- HTTP Proxy Section -->
+                            <div class="form-group">
+                                <label class="form-label section-label">HTTP Proxy</label>
+                                <div class="proxy-grid">
+                                    <input type="text" id="httpProxyHost" class="form-input" placeholder="127.0.0.1">
+                                    <input type="number" id="httpProxyPort" class="form-input" placeholder="8080">
+                                </div>
+                                <div class="proxy-grid">
+                                    <input type="text" id="httpProxyUser" class="form-input"
+                                        placeholder="Username (optional)">
+                                    <input type="password" id="httpProxyPass" class="form-input"
+                                        placeholder="Password (optional)">
+                                </div>
+                            </div>
+
+                            <!-- HTTPS Proxy Section -->
+                            <div class="form-group">
+                                <div class="label-with-checkbox">
+                                    <label class="form-label section-label">HTTPS Proxy</label>
+                                    <label class="checkbox-label-inline">
+                                        <input type="checkbox" id="sameAsHttp" class="form-checkbox">
+                                        <span>Same as HTTP</span>
+                                    </label>
+                                </div>
+                                <div id="httpsProxyInputs">
+                                    <div class="proxy-grid">
+                                        <input type="text" id="httpsProxyHost" class="form-input"
+                                            placeholder="127.0.0.1">
+                                        <input type="number" id="httpsProxyPort" class="form-input" placeholder="8080">
+                                    </div>
+                                    <div class="proxy-grid">
+                                        <input type="text" id="httpsProxyUser" class="form-input"
+                                            placeholder="Username (optional)">
+                                        <input type="password" id="httpsProxyPass" class="form-input"
+                                            placeholder="Password (optional)">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p class="form-hint">Leave host empty to clear proxy configuration</p>
+                            <div id="proxyStatus" class="status-message hidden"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button id="saveSettingsBtn" class="btn btn-primary">Save & Apply</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="repeater-workspace" id="repeaterWorkspace">
                     <!-- Repeater content injected here -->
@@ -68,6 +130,8 @@
         </main>
     </div>
 
+    <!-- IndexedDB Storage Module -->
+    <script src="../../src/indexeddb.js"></script>
     <script src="../js/common.js"></script>
     <script src="../js/repeterpage.js"></script>
 </body>

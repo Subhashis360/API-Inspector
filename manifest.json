@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "API & JS File Analyzer Pro",
+  "name": "API Inspector",
   "version": "1.2",
   "description": "Extract and analyze JS files, API calls, and WebSocket traffic",
   "permissions": [
@@ -9,7 +9,8 @@
     "webRequest",
     "webNavigation",
     "debugger",
-    "scripting"
+    "scripting",
+    "proxy"
   ],
   "host_permissions": [
     "https://*/*",
@@ -20,7 +21,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "API & JS Analyzer"
+    "default_title": "API Inspector"
   },
   "content_scripts": [
     {

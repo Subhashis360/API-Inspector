@@ -20,6 +20,56 @@ class WebSocketPage extends DashboardCommon {
         this.setupContextMenu();
     }
 
+    onItemsAdded(updates) {
+        // Only handle WebSocket updates
+        if (!updates.webSockets || updates.webSockets.length === 0) return;
+
+        const list = this.elements.wsList;
+        const wasEmpty = list.querySelector('.empty-state');
+        if (wasEmpty) list.innerHTML = '';
+
+        // Check if we need to filter
+        const matchesFilter = (item) => !this.filters.search || item.url.toLowerCase().includes(this.filters.search);
+
+        updates.webSockets.forEach(item => {
+            // Update existing or add new
+            const existingEl = list.querySelector(`.ws-item[data-id="${item.id}"]`);
+
+            if (matchesFilter(item)) {
+                if (existingEl) {
+                    // Replace existing
+                    const newEl = this.createWsListItem(item, this.selectedItem && this.selectedItem.id === item.id);
+                    newEl.addEventListener('click', () => this.selectItem(item));
+                    // Preserve context menu handler? The list has a delegated handler?
+                    // No, context menu is attached to list in setupContextMenu
+                    list.replaceChild(newEl, existingEl);
+                } else {
+                    // Prepend or Append?
+                    // renderList sorts by startTime desc (newest first).
+                    // So we should PREPEND new items.
+                    const el = this.createWsListItem(item, this.selectedItem && this.selectedItem.id === item.id);
+                    el.addEventListener('click', () => this.selectItem(item));
+                    list.prepend(el);
+                }
+            } else if (existingEl) {
+                // If it no longer matches filter, remove it
+                existingEl.remove();
+            }
+        });
+
+        // If selected item was updated, refresh details
+        if (this.selectedItem) {
+            const updatedSelected = updates.webSockets.find(u => u.id === this.selectedItem.id);
+            if (updatedSelected) {
+                this.selectedItem = updatedSelected;
+                this.renderDetails();
+                this.renderConnectionInfo();
+            } else if (updates.webSockets.some(u => u.id === this.selectedItem.id)) {
+                // It might have been updated in data but not found in updates array? No, strict check above.
+            }
+        }
+    }
+
     onDataUpdated() {
         this.renderList();
         if (this.selectedItem) {
@@ -160,8 +210,11 @@ class WebSocketPage extends DashboardCommon {
         }
     }
 
-    saveData() {
-        chrome.storage.local.set({ collectedData: this.data });
+    async saveData() {
+        // Note: Data is automatically saved to IndexedDB via background.js
+        // This method is kept for compatibility but the actual persistence
+        // is handled by the IndexedDB batching mechanism
+        console.log('[WebSocketPage] Data updates are handled automatically by IndexedDB');
     }
 
     renderList() {

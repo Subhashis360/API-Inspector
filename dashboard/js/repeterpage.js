@@ -4,16 +4,44 @@ class RepeaterPage extends DashboardCommon {
         this.repeaterTabs = [];
         this.activeRepeaterTabId = null;
         this.repeaterCounter = 1;
-        this.repeaterViewMode = 'split';
 
         this.elements = {
-            repeaterTabsBar: document.getElementById('repeaterTabsBar'),
+            // Note: We now render tabs into the container, not the bar itself
+            repeaterTabsContainer: document.getElementById('repeaterTabsContainer'),
             repeaterWorkspace: document.getElementById('repeaterWorkspace'),
-            addRepeaterTabBtn: document.getElementById('addRepeaterTab')
+            addRepeaterTabBtn: document.getElementById('addRepeaterTab'),
+
+            // Settings
+            settingsBtn: document.getElementById('repeaterSettingsBtn'),
+            settingsModal: document.getElementById('settingsModal'),
+            closeSettingsBtn: document.getElementById('closeSettingsModal'),
+            saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+            proxyStatus: document.getElementById('proxyStatus'),
+
+            // HTTP Proxy inputs
+            httpProxyHost: document.getElementById('httpProxyHost'),
+            httpProxyPort: document.getElementById('httpProxyPort'),
+            httpProxyUser: document.getElementById('httpProxyUser'),
+            httpProxyPass: document.getElementById('httpProxyPass'),
+
+            // HTTPS Proxy inputs
+            httpsProxyHost: document.getElementById('httpsProxyHost'),
+            httpsProxyPort: document.getElementById('httpsProxyPort'),
+            httpsProxyUser: document.getElementById('httpsProxyUser'),
+            httpsProxyPass: document.getElementById('httpsProxyPass'),
+            sameAsHttp: document.getElementById('sameAsHttp'),
+            httpsProxyInputs: document.getElementById('httpsProxyInputs')
         };
 
+        this.proxyConfig = { http: null, https: null, enabled: true };
+
         this.setupPageListeners();
-        this.loadTabs().then(() => {
+        this.setupSettingsListeners(); // New listener setup
+
+        Promise.all([
+            this.loadTabs(),
+            this.loadProxySettings()
+        ]).then(() => {
             this.checkPendingRequest();
         });
     }
@@ -22,70 +50,322 @@ class RepeaterPage extends DashboardCommon {
         this.elements.addRepeaterTabBtn.addEventListener('click', () => this.addRepeaterTab());
     }
 
-    async loadTabs() {
+    setupSettingsListeners() {
+        // Open Modal
+        this.elements.settingsBtn.addEventListener('click', () => {
+            this.loadProxyIntoForm();
+            this.elements.proxyStatus.classList.add('hidden');
+            this.elements.settingsModal.classList.remove('hidden');
+        });
+
+        // Close Modal
+        this.elements.closeSettingsBtn.addEventListener('click', () => {
+            this.elements.settingsModal.classList.add('hidden');
+        });
+
+        // Close on clicking outside
+        this.elements.settingsModal.addEventListener('click', (e) => {
+            if (e.target === this.elements.settingsModal) {
+                this.elements.settingsModal.classList.add('hidden');
+            }
+        });
+
+        // Same as HTTP checkbox
+        this.elements.sameAsHttp.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                this.elements.httpsProxyInputs.classList.add('disabled');
+            } else {
+                this.elements.httpsProxyInputs.classList.remove('disabled');
+            }
+        });
+
+        // Save Settings
+        this.elements.saveSettingsBtn.addEventListener('click', async () => {
+            this.validateAndSaveProxy();
+        });
+    }
+
+    loadProxyIntoForm() {
+        if (this.proxyConfig.http) {
+            this.elements.httpProxyHost.value = this.proxyConfig.http.host || '';
+            this.elements.httpProxyPort.value = this.proxyConfig.http.port || '';
+            this.elements.httpProxyUser.value = this.proxyConfig.http.username || '';
+            this.elements.httpProxyPass.value = this.proxyConfig.http.password || '';
+        } else {
+            this.elements.httpProxyHost.value = '';
+            this.elements.httpProxyPort.value = '';
+            this.elements.httpProxyUser.value = '';
+            this.elements.httpProxyPass.value = '';
+        }
+
+        if (this.proxyConfig.https) {
+            this.elements.httpsProxyHost.value = this.proxyConfig.https.host || '';
+            this.elements.httpsProxyPort.value = this.proxyConfig.https.port || '';
+            this.elements.httpsProxyUser.value = this.proxyConfig.https.username || '';
+            this.elements.httpsProxyPass.value = this.proxyConfig.https.password || '';
+            this.elements.sameAsHttp.checked = false;
+            this.elements.httpsProxyInputs.classList.remove('disabled');
+        } else {
+            this.elements.httpsProxyHost.value = '';
+            this.elements.httpsProxyPort.value = '';
+            this.elements.httpsProxyUser.value = '';
+            this.elements.httpsProxyPass.value = '';
+            this.elements.sameAsHttp.checked = true;
+            this.elements.httpsProxyInputs.classList.add('disabled');
+        }
+    }
+
+    async loadProxySettings() {
+        try {
+            const result = await this.storageDB.getSetting('repeater_proxy_config');
+            if (result) {
+                this.proxyConfig = result;
+            } else {
+                this.proxyConfig = { http: null, https: null, enabled: true };
+            }
+            // Update settings button color if any proxy is configured
+            if (this.proxyConfig.http || this.proxyConfig.https) {
+                this.elements.settingsBtn.style.color = 'var(--accent-primary)';
+            }
+        } catch (error) {
+            console.error('[RepeaterPage] Error loading proxy settings:', error);
+            this.proxyConfig = { http: null, https: null, enabled: true };
+        }
+    }
+
+    async saveProxySettings(config) {
+        try {
+            await this.storageDB.setSetting('repeater_proxy_config', config);
+            this.proxyConfig = config;
+            if (config.http || config.https) {
+                this.elements.settingsBtn.style.color = 'var(--accent-primary)';
+            } else {
+                this.elements.settingsBtn.style.color = '';
+            }
+        } catch (error) {
+            console.error('[RepeaterPage] Error saving proxy settings:', error);
+        }
+    }
+
+    showProxyStatus(msg, type) {
+        const el = this.elements.proxyStatus;
+        el.textContent = msg;
+        el.className = `status-message ${type}`;
+        el.classList.remove('hidden');
+    }
+
+    async validateAndSaveProxy() {
+        const btn = this.elements.saveSettingsBtn;
+        btn.textContent = 'Verifying...';
+        btn.classList.add('btn-disabled');
+
+        try {
+            // Read form values
+            const httpHost = this.elements.httpProxyHost.value.trim();
+            const httpPort = this.elements.httpProxyPort.value.trim();
+            const httpUser = this.elements.httpProxyUser.value.trim();
+            const httpPass = this.elements.httpProxyPass.value.trim();
+
+            const sameAsHttp = this.elements.sameAsHttp.checked;
+            let httpsHost, httpsPort, httpsUser, httpsPass;
+
+            if (sameAsHttp) {
+                httpsHost = httpHost;
+                httpsPort = httpPort;
+                httpsUser = httpUser;
+                httpsPass = httpPass;
+            } else {
+                httpsHost = this.elements.httpsProxyHost.value.trim();
+                httpsPort = this.elements.httpsProxyPort.value.trim();
+                httpsUser = this.elements.httpsProxyUser.value.trim();
+                httpsPass = this.elements.httpsProxyPass.value.trim();
+            }
+
+            // Build config object
+            const newConfig = {
+                http: httpHost ? {
+                    scheme: 'http',
+                    host: httpHost,
+                    port: parseInt(httpPort) || 80,
+                    username: httpUser || null,
+                    password: httpPass || null
+                } : null,
+                https: httpsHost ? {
+                    scheme: 'http',
+                    host: httpsHost,
+                    port: parseInt(httpsPort) || 443,
+                    username: httpsUser || null,
+                    password: httpsPass || null
+                } : null,
+                enabled: this.proxyConfig.enabled
+            };
+
+            // If both are empty, clear config
+            if (!newConfig.http && !newConfig.https) {
+                await this.saveProxySettings({ http: null, https: null, enabled: true });
+                this.showProxyStatus('Proxy configuration cleared.', 'success');
+                setTimeout(() => this.elements.settingsModal.classList.add('hidden'), 1000);
+                return;
+            }
+
+            // Test the proxy by applying temporarily
+            const testConfig = this.buildChromeProxyConfig(newConfig.http || newConfig.https);
+            await this.applyChromeProxy(testConfig);
+
+            // Verify with IP service
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const res = await fetch('https://api.ipify.org?format=json', {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (res.ok) {
+                    // Build success message with the proxy info user entered
+                    let proxyInfo = '';
+                    if (newConfig.http) {
+                        proxyInfo = `HTTP Proxy: ${newConfig.http.host}:${newConfig.http.port}`;
+                    }
+                    if (newConfig.https) {
+                        if (proxyInfo) proxyInfo += ' | ';
+                        proxyInfo += `HTTPS Proxy: ${newConfig.https.host}:${newConfig.https.port}`;
+                    }
+
+                    this.showProxyStatus(`Success! ${proxyInfo}`, 'success');
+                    await this.saveProxySettings(newConfig);
+                    setTimeout(() => this.elements.settingsModal.classList.add('hidden'), 1500);
+                } else {
+                    throw new Error('Verification request failed');
+                }
+            } catch (err) {
+                throw new Error('Could not connect through proxy: ' + err.message);
+            } finally {
+                // Revert proxy
+                await this.clearChromeProxy();
+            }
+
+        } catch (error) {
+            this.showProxyStatus(error.message, 'error');
+        } finally {
+            btn.textContent = 'Save & Apply';
+            btn.classList.remove('btn-disabled');
+        }
+    }
+
+    buildChromeProxyConfig(proxyInfo) {
+        if (!proxyInfo) return null;
+
+        return {
+            mode: "fixed_servers",
+            rules: {
+                singleProxy: {
+                    scheme: proxyInfo.scheme || 'http',
+                    host: proxyInfo.host,
+                    port: proxyInfo.port
+                },
+                bypassList: ["localhost", "127.0.0.1"]
+            }
+        };
+    }
+
+    async applyChromeProxy(config) {
         return new Promise((resolve) => {
-            chrome.storage.local.get(['repeaterTabs', 'activeRepeaterTabId'], (result) => {
-                if (result.repeaterTabs && result.repeaterTabs.length > 0) {
-                    this.repeaterTabs = result.repeaterTabs;
-                    this.activeRepeaterTabId = result.activeRepeaterTabId || this.repeaterTabs[0].id;
-                    this.repeaterCounter = this.repeaterTabs.length + 1;
-                } else {
-                    this.repeaterTabs = [];
-                    this.addRepeaterTab(); // Add default empty tab
-                }
-                this.renderRepeaterTabs();
-                this.renderRepeaterWorkspace();
-                resolve();
-            });
-        });
-    }
-
-    saveTabs() {
-        chrome.storage.local.set({
-            repeaterTabs: this.repeaterTabs,
-            activeRepeaterTabId: this.activeRepeaterTabId
-        });
-    }
-
-    checkPendingRequest() {
-        chrome.storage.local.get(['repeater_pending_request'], (result) => {
-            if (result.repeater_pending_request) {
-                const req = result.repeater_pending_request;
-
-                // Smart Tab Logic: Check if current/active tab is "empty"
-                const activeTab = this.repeaterTabs.find(t => t.id === this.activeRepeaterTabId);
-                const isEmpty = activeTab && !activeTab.url && activeTab.method === 'GET' && (!activeTab.headers || activeTab.headers.length === 0) && !activeTab.body;
-
-                if (isEmpty) {
-                    // Overwrite active tab
-                    this.updateTabWithRequest(activeTab, req);
-                } else {
-                    // Create new tab
-                    this.addRepeaterTab(req);
-                }
-
-                chrome.storage.local.remove('repeater_pending_request');
+            if (chrome && chrome.proxy) {
+                chrome.proxy.settings.set(
+                    { value: config, scope: 'regular' },
+                    () => resolve()
+                );
+            } else {
+                resolve(); // Fallback for dev/non-extension env
             }
         });
     }
 
+    async clearChromeProxy() {
+        return new Promise((resolve) => {
+            if (chrome && chrome.proxy) {
+                chrome.proxy.settings.clear(
+                    { scope: 'regular' },
+                    () => resolve()
+                );
+            } else {
+                resolve();
+            }
+        });
+    }
+
+    async loadTabs() {
+        try {
+            const settings = await this.storageDB.getSettings(['repeaterTabs', 'activeRepeaterTabId']);
+
+            if (settings.repeaterTabs && settings.repeaterTabs.length > 0) {
+                this.repeaterTabs = settings.repeaterTabs;
+                this.activeRepeaterTabId = settings.activeRepeaterTabId || this.repeaterTabs[0].id;
+                this.repeaterCounter = this.repeaterTabs.length + 1;
+            } else {
+                this.repeaterTabs = [];
+                this.addRepeaterTab(); // Add default empty tab
+            }
+
+            this.renderRepeaterTabs();
+            this.renderRepeaterWorkspace();
+        } catch (error) {
+            console.error('[RepeaterPage] Error loading tabs:', error);
+            this.addRepeaterTab(); // Fallback: add default tab
+        }
+    }
+
+    async saveTabs() {
+        try {
+            await this.storageDB.setSettings({
+                repeaterTabs: this.repeaterTabs,
+                activeRepeaterTabId: this.activeRepeaterTabId
+            });
+        } catch (error) {
+            console.error('[RepeaterPage] Error saving tabs:', error);
+        }
+    }
+
+    async checkPendingRequest() {
+        try {
+            const pendingRequest = await this.storageDB.getSetting('repeater_pending_request');
+
+            if (pendingRequest) {
+                const req = pendingRequest;
+                const activeTab = this.repeaterTabs.find(t => t.id === this.activeRepeaterTabId);
+                const isEmpty = activeTab && !activeTab.url && activeTab.method === 'GET' && (!activeTab.headers || activeTab.headers.length === 0) && !activeTab.body;
+
+                if (isEmpty) {
+                    this.updateTabWithRequest(activeTab, req);
+                } else {
+                    this.addRepeaterTab(req);
+                }
+
+                await this.storageDB.removeSetting('repeater_pending_request');
+            }
+        } catch (error) {
+            console.error('[RepeaterPage] Error checking pending request:', error);
+        }
+    }
+
     updateTabWithRequest(tab, req) {
         tab.method = req.method || 'GET';
+        // Ensure URL always has a protocol before saving/displaying?
+        // Actually, we usually want to keep it as is, but users expect http/https
         tab.url = req.url || '';
         tab.headers = req.headers || [];
         tab.body = req.body || '';
-        tab.isHttps = req.url?.startsWith('https') || false;
+        tab.isHttps = req.isHttps !== undefined ? req.isHttps : (req.url?.startsWith('https') || false);
 
-        // Normalize headers/body
         this.normalizeTabData(tab);
-
         this.renderRepeaterTabs();
         this.renderRepeaterWorkspace();
         this.saveTabs();
     }
 
     normalizeTabData(tab) {
-        // Normalize headers
         if (typeof tab.headers === 'string') {
             const headerLines = tab.headers.split('\n');
             tab.headers = [];
@@ -101,13 +381,11 @@ class RepeaterPage extends DashboardCommon {
             tab.headers = [];
         }
 
-        // Format body
         if (typeof tab.body === 'object') {
             tab.body = JSON.stringify(tab.body, null, 2);
         }
     }
 
-    // Repeater Methods
     addRepeaterTab(requestData = null) {
         const id = Date.now().toString();
         const tab = {
@@ -118,10 +396,9 @@ class RepeaterPage extends DashboardCommon {
             headers: requestData?.headers || [],
             body: requestData?.body || '',
             response: null,
-            isHttps: requestData?.url?.startsWith('https') || false
+            isHttps: requestData?.isHttps !== undefined ? requestData.isHttps : true
         };
 
-        // Only normalize if we have actual request data
         if (requestData) {
             this.normalizeTabData(tab);
         }
@@ -134,10 +411,9 @@ class RepeaterPage extends DashboardCommon {
     }
 
     renderRepeaterTabs() {
-        const container = this.elements.repeaterTabsBar;
+        const container = this.elements.repeaterTabsContainer;
         if (!container) return;
 
-        const addBtn = this.elements.addRepeaterTabBtn;
         container.innerHTML = '';
 
         this.repeaterTabs.forEach(tab => {
@@ -165,7 +441,7 @@ class RepeaterPage extends DashboardCommon {
             container.appendChild(el);
         });
 
-        container.appendChild(addBtn);
+        // Removed appendChild(addBtn) because it is now outside the container in HTML
     }
 
     switchRepeaterTab(id) {
@@ -239,6 +515,12 @@ class RepeaterPage extends DashboardCommon {
                         </div>
                         <span class="https-label">HTTPS</span>
                     </div>
+                    <div class="https-badge" id="proxyToggle">
+                        <div class="https-checkbox ${this.proxyConfig.enabled ? 'active' : ''}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                        <span class="https-label">PROXY</span>
+                    </div>
                     <button class="send-btn" id="repSend">SEND</button>
                 </div>
             </div>
@@ -255,7 +537,6 @@ class RepeaterPage extends DashboardCommon {
     combineHeadersAndBody(tab) {
         let content = '';
 
-        // Only process URL if it exists
         if (tab.url && tab.url.trim()) {
             try {
                 const url = tab.url.startsWith('http') ? tab.url : 'http://' + tab.url;
@@ -279,7 +560,6 @@ class RepeaterPage extends DashboardCommon {
         }
         content += '\n';
 
-        // Body - pretty print JSON if detected
         if (tab.body) {
             try {
                 const jsonBody = JSON.parse(tab.body);
@@ -304,7 +584,6 @@ class RepeaterPage extends DashboardCommon {
             `;
         }
 
-        // Build response content
         let rawContent = '';
         rawContent += `HTTP/1.1 ${tab.response.status} ${tab.response.statusText}\n`;
 
@@ -317,7 +596,6 @@ class RepeaterPage extends DashboardCommon {
 
         rawContent += '\n';
 
-        // Pretty print JSON response body
         if (tab.response.body) {
             try {
                 const jsonBody = JSON.parse(tab.response.body);
@@ -353,19 +631,15 @@ class RepeaterPage extends DashboardCommon {
 
         let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // Highlight Request Line
         html = html.replace(/^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|CONNECT|TRACE)(\s+)(.*?)(\s+)(HTTP\/\d\.\d)/gm,
             '<span class="http-method">$1</span>$2$3$4<span class="http-protocol">$5</span>');
 
-        // Highlight Response Status Line
         html = html.replace(/^(HTTP\/\d\.\d)(\s+)(\d{3})(\s+)(.*)/gm,
             '<span class="http-protocol">$1</span>$2<span class="http-status-code">$3</span>$4<span class="http-status-text">$5</span>');
 
-        // Highlight Headers
         html = html.replace(/^([a-zA-Z0-9-]+):(\s+)(.*)/gm,
             '<span class="http-header-key">$1</span>:<span class="http-header-value">$2$3</span>');
 
-        // Highlight JSON Body
         const parts = html.split('\n\n');
         if (parts.length > 1) {
             let body = parts.slice(1).join('\n\n');
@@ -396,34 +670,29 @@ class RepeaterPage extends DashboardCommon {
     }
 
     attachRequestListeners(tab) {
-        // Method
         document.getElementById('repMethod').addEventListener('change', (e) => {
             tab.method = e.target.value;
             this.renderRepeaterTabs();
             this.saveTabs();
         });
 
-        // URL
         document.getElementById('repUrl').addEventListener('input', (e) => {
             tab.url = e.target.value;
-            if (tab.url.startsWith('https://')) {
-                tab.isHttps = true;
-                this.renderRepeaterWorkspace();
-            } else if (tab.url.startsWith('http://')) {
-                tab.isHttps = false;
-                this.renderRepeaterWorkspace();
-            }
             this.saveTabs();
         });
 
-        // HTTPS Toggle
         document.getElementById('httpsToggle').addEventListener('click', () => {
             tab.isHttps = !tab.isHttps;
             this.renderRepeaterWorkspace();
             this.saveTabs();
         });
 
-        // Editor
+        document.getElementById('proxyToggle').addEventListener('click', async () => {
+            this.proxyConfig.enabled = !this.proxyConfig.enabled;
+            await this.saveProxySettings(this.proxyConfig);
+            this.renderRepeaterWorkspace();
+        });
+
         const editor = document.getElementById('reqEditor');
         const highlight = document.getElementById('reqHighlight');
         const lineNumbers = document.getElementById('reqLineNumbers');
@@ -449,10 +718,8 @@ class RepeaterPage extends DashboardCommon {
             lineNumbers.scrollTop = editor.scrollTop;
         });
 
-        // Send
         document.getElementById('repSend').addEventListener('click', () => this.executeRepeaterRequest(tab));
 
-        // Response Editor Scroll Sync
         const resEditor = document.getElementById('resEditor');
         const resHighlight = document.getElementById('resHighlight');
         const resLineNumbers = document.getElementById('resLineNumbers');
@@ -503,14 +770,17 @@ class RepeaterPage extends DashboardCommon {
             const urlInput = document.getElementById('repUrl');
             if (methodSelect && methodSelect.value !== tab.method) methodSelect.value = tab.method;
             if (urlInput && urlInput.value !== tab.url) urlInput.value = tab.url;
+
+            // Extract body from raw request (everything after first blank line)
+            if (parts.length > 1) {
+                tab.body = parts.slice(1).join('\n\n');
+            } else {
+                tab.body = '';
+            }
         } else {
             const parts = text.split('\n\n');
             tab.body = parts.slice(1).join('\n\n');
-            return;
         }
-
-        const parts = text.split('\n\n');
-        tab.body = parts.slice(1).join('\n\n');
     }
 
     async executeRepeaterRequest(tab) {
@@ -521,11 +791,27 @@ class RepeaterPage extends DashboardCommon {
         }
 
         const startTime = Date.now();
+        let proxyApplied = false;
 
         try {
             let url = tab.url;
             if (!url.startsWith('http')) {
                 url = (tab.isHttps ? 'https://' : 'http://') + url;
+            }
+
+            // Apply proxy if enabled and configured
+            let proxyApplied = false;
+            if (this.proxyConfig.enabled) {
+                const isHttpsRequest = url.startsWith('https://');
+                const proxyToUse = isHttpsRequest ? this.proxyConfig.https : this.proxyConfig.http;
+
+                if (proxyToUse) {
+                    const proxyConfig = this.buildChromeProxyConfig(proxyToUse);
+                    if (proxyConfig) {
+                        await this.applyChromeProxy(proxyConfig);
+                        proxyApplied = true;
+                    }
+                }
             }
 
             const headers = {};
@@ -570,6 +856,11 @@ class RepeaterPage extends DashboardCommon {
                 size: '0 B'
             };
         } finally {
+            // Revert proxy settings if they were applied
+            if (proxyApplied) {
+                await this.clearChromeProxy();
+            }
+
             if (sendBtn) {
                 sendBtn.textContent = 'SEND';
                 sendBtn.disabled = false;

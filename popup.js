@@ -1,3 +1,5 @@
+// IndexedDB storage module loaded via script tag and available as StorageDB global
+
 const setupView = document.getElementById('setupView');
 const recordingView = document.getElementById('recordingView');
 const statusBadge = document.getElementById('statusBadge');
@@ -23,6 +25,13 @@ let currentActiveTab = null;
 let statsInterval = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize StorageDB
+  try {
+    await StorageDB.init();
+  } catch (e) {
+    console.error('[Popup] StorageDB init failed:', e);
+  }
+
   await checkRecordingStatus();
   setupEventListeners();
   getCurrentTab();
@@ -34,14 +43,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupStorageListener() {
-  chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace === 'local') {
-      if (changes.isRecording) {
-        checkRecordingStatus();
-      }
-      if (changes.lastError && changes.lastError.newValue) {
-        alert('Recording error: ' + changes.lastError.newValue);
-      }
+  // Listen for IndexedDB changes
+  StorageDB.addChangeListener((changes) => {
+    if (changes.isRecording) {
+      checkRecordingStatus();
+    }
+    if (changes.lastError && changes.lastError.newValue) {
+      alert('Recording error: ' + changes.lastError.newValue);
     }
   });
 }
@@ -338,18 +346,18 @@ function resetStartBtn() {
 }
 
 async function stopRecording() {
-  const result = await chrome.storage.local.get(['recordingTabId']);
-  if (result.recordingTabId) {
-    chrome.runtime.sendMessage({ action: 'stopRecording', tabId: result.recordingTabId });
+  const recordingTabId = await StorageDB.getSetting('recordingTabId');
+  if (recordingTabId) {
+    chrome.runtime.sendMessage({ action: 'stopRecording', tabId: recordingTabId });
   }
-  await chrome.storage.local.set({ isRecording: false });
+  await StorageDB.setSetting('isRecording', false);
   updateUIState(false);
 }
 
 async function checkRecordingStatus() {
-  const result = await chrome.storage.local.get(['isRecording', 'targetDomain', 'captureAllRequests']);
-  if (result.isRecording) {
-    updateUIState(true, result.targetDomain, result.captureAllRequests);
+  const settings = await StorageDB.getSettings(['isRecording', 'targetDomain', 'captureAllRequests']);
+  if (settings.isRecording) {
+    updateUIState(true, settings.targetDomain, settings.captureAllRequests);
   } else {
     updateUIState(false);
   }
@@ -393,10 +401,9 @@ function stopStatsInterval() {
 }
 
 async function updateStats() {
-  const result = await chrome.storage.local.get(['collectedData']);
-  const data = result.collectedData || { jsFiles: {}, apiCalls: [] };
-  apiCountEl.textContent = data.apiCalls ? data.apiCalls.length : 0;
-  jsCountEl.textContent = countJSFiles(data.jsFiles);
+  const collectedData = await StorageDB.getCollectedData();
+  apiCountEl.textContent = collectedData.apiCalls ? collectedData.apiCalls.length : 0;
+  jsCountEl.textContent = countJSFiles(collectedData.jsFiles);
 }
 
 function countJSFiles(jsFiles) {
