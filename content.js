@@ -47,12 +47,15 @@ function interceptWebSockets() {
     if (!window.__capturedWebSockets) window.__capturedWebSockets = {};
     window.__capturedWebSockets[url] = ws;
 
-    // Cleanup on close
-    ws.addEventListener('close', function () {
+    // Cleanup on close or error
+    const cleanup = () => {
       if (window.__capturedWebSockets && window.__capturedWebSockets[url] === ws) {
         delete window.__capturedWebSockets[url];
       }
-    });
+    };
+
+    ws.addEventListener('close', cleanup);
+    ws.addEventListener('error', cleanup);
 
     return ws;
   };

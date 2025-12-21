@@ -1494,7 +1494,6 @@
 }
 
 /* Make request items in subfolders slightly smaller or compact if desired */
-/* Make request items in subfolders slightly smaller or compact if desired */
 .sub-folder-list .request-item {
     font-size: 12px;
     padding: 8px 12px;
@@ -1502,4 +1501,114 @@
 
 .sub-folder-list.hidden {
     display: none;
+}
+
+/* Context Menu & Nested Menus */
+.context-menu,
+.highlight-menu,
+.submenu {
+    position: fixed;
+    background: #18191c;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    padding: 6px 0;
+    z-index: 10000;
+    min-width: 180px;
+    animation: menuFadeIn 0.1s ease-out;
+}
+
+.context-menu.hidden,
+.highlight-menu.hidden,
+.submenu.hidden {
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.context-menu-item,
+.highlight-option,
+.submenu-item {
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+    position: relative;
+    /* For nested menu positioning */
+}
+
+.context-menu-item:hover,
+.highlight-option:hover,
+.submenu-item:hover {
+    background-color: var(--bg-hover);
+}
+
+.context-menu-item .context-icon,
+.submenu-item .menu-icon {
+    font-size: 14px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.context-divider,
+.highlight-divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 4px 0;
+}
+
+.context-menu-item.has-submenu::after {
+    content: '›';
+    margin-left: auto;
+    font-size: 16px;
+    color: var(--text-secondary);
+}
+
+/* Color Dots for Highlight Menu */
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot.red {
+    background-color: #ef4444;
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+}
+
+.dot.green {
+    background-color: #10b981;
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.5);
+}
+
+.dot.blue {
+    background-color: #3b82f6;
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+}
+
+.dot.yellow {
+    background-color: #eab308;
+    box-shadow: 0 0 5px rgba(234, 179, 8, 0.5);
+}
+
+.dot.purple {
+    background-color: #a855f7;
+    box-shadow: 0 0 5px rgba(168, 85, 247, 0.5);
+}
+
+@keyframes menuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

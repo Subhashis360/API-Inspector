@@ -738,32 +738,46 @@ class RepeaterPage extends DashboardCommon {
         if (lines.length === 0) return;
 
         const firstLine = lines[0];
-        const reqLineMatch = firstLine.match(/^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|CONNECT|TRACE)\s+(.*?)\s+HTTP\/\d\.\d/);
+        // Allow flexible whitespace matching
+        const reqLineMatch = firstLine.match(/^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|CONNECT|TRACE)\s+(.*?)\s+HTTP\/\d\.\d/i);
 
         if (reqLineMatch) {
-            tab.method = reqLineMatch[1];
+            tab.method = reqLineMatch[1].toUpperCase();
             const path = reqLineMatch[2];
 
             let host = '';
-            const parts = text.split('\n\n');
-            const headerLines = parts[0].split('\n').slice(1);
+            // Split by double newline to separate headers from body
+            const parts = text.split(/\r?\n\r?\n/);
+            const headerSection = parts[0];
+            const headerLines = headerSection.split(/\r?\n/).slice(1);
 
             tab.headers = [];
             headerLines.forEach(line => {
-                const p = line.split(':');
-                if (p.length > 1) {
-                    const key = p[0].trim();
-                    const val = p.slice(1).join(':').trim();
+                const separatorIndex = line.indexOf(':');
+                if (separatorIndex > -1) {
+                    const key = line.substring(0, separatorIndex).trim();
+                    const val = line.substring(separatorIndex + 1).trim();
                     if (key.toLowerCase() === 'host') {
                         host = val;
                     } else {
+                        // Keep other headers
                         tab.headers.push({ name: key, value: val });
                     }
                 }
             });
 
+            // If parsed Host header is found, update URL. 
+            // If not found (e.g. user deleted it), keep the existing host from tab.url if possible
             if (host) {
                 tab.url = (tab.isHttps ? 'https://' : 'http://') + host + path;
+            } else if (tab.url) {
+                // Fallback: Use existing host from current URL
+                try {
+                    const currentUrl = new URL(tab.url.startsWith('http') ? tab.url : 'http://' + tab.url);
+                    tab.url = (tab.isHttps ? 'https://' : 'http://') + currentUrl.host + path;
+                } catch (e) {
+                    // Invalid existing URL, cannot reconstruct
+                }
             }
 
             const methodSelect = document.getElementById('repMethod');
@@ -773,13 +787,18 @@ class RepeaterPage extends DashboardCommon {
 
             // Extract body from raw request (everything after first blank line)
             if (parts.length > 1) {
+                // Join back the rest of the parts in case body had double newlines
                 tab.body = parts.slice(1).join('\n\n');
             } else {
                 tab.body = '';
             }
         } else {
-            const parts = text.split('\n\n');
-            tab.body = parts.slice(1).join('\n\n');
+            // If first line doesn't match Request Line format, treat as Body-only edit or incomplete
+            // This prevents clearing method/url while typing
+            const parts = text.split(/\r?\n\r?\n/);
+            if (parts.length > 1) {
+                tab.body = parts.slice(1).join('\n\n');
+            }
         }
     }
 

@@ -264,52 +264,8 @@
                                 <button class="detail-tab active" data-view="split">Split</button>
                                 <button class="detail-tab" data-view="raw">Raw</button>
                             </div>
-                            <div class="detail-actions">
-                                <button class="icon-btn" id="copyCurlBtn" title="Copy as cURL">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                    </svg>
-                                </button>
-                                <button class="icon-btn" id="sendToRepeaterBtn" title="Send to Repeater">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <polyline points="17 1 21 5 17 9"></polyline>
-                                        <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-                                        <polyline points="7 23 3 19 7 15"></polyline>
-                                        <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-                                    </svg>
-                                </button>
-                                <button class="icon-btn" id="highlightBtn" title="Highlight">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <path d="m13.5 10.5 4 4" />
-                                        <path d="m17.5 6.5 4 4" />
-                                        <path d="m8 7 7-7" />
-                                        <path d="m16 11-7-7" />
-                                        <path d="m19 14-7-7" />
-                                        <path d="M22 3 9 16 6 19l-3 5 5-3 3-3 13-13z" />
-                                    </svg>
-                                </button>
-                                <!-- Highlight Menu -->
-                                <div class="highlight-menu hidden" id="highlightMenu">
-                                    <div class="highlight-option" data-color="red"><span class="dot red"></span> Red
-                                    </div>
-                                    <div class="highlight-option" data-color="green"><span class="dot green"></span>
-                                        Green</div>
-                                    <div class="highlight-option" data-color="blue"><span class="dot blue"></span> Blue
-                                    </div>
-                                    <div class="highlight-option" data-color="yellow"><span class="dot yellow"></span>
-                                        Yellow</div>
-                                    <div class="highlight-option" data-color="purple"><span class="dot purple"></span>
-                                        Purple</div>
-                                    <div class="highlight-option" data-color="none">None</div>
-                                </div>
-                            </div>
+                            <!-- Detail Actions removed from here, moving to Context Menu -->
+                            <div class="detail-actions" style="display:none;"></div>
                         </div>
                         <div class="details-body" id="detailsBody">
                             <!-- Details injected here -->
@@ -325,6 +281,41 @@
                 </div>
                 <div class="context-menu-item" id="ctxDeleteRequest">
                     <span class="context-icon">🗑️</span> Delete Request
+                </div>
+                <div class="context-divider"></div>
+
+                <!-- Highlight with Submenu -->
+                <div class="context-menu-item has-submenu" id="ctxHighlight">
+                    <span class="context-icon">🖍️</span> Highlight Color
+                </div>
+
+                <!-- Copy with Submenu -->
+                <div class="context-menu-item has-submenu" id="ctxCopyAs">
+                    <span class="context-icon">📋</span> Copy As...
+                </div>
+            </div>
+
+            <!-- Nested Highlight Menu -->
+            <div class="highlight-menu hidden" id="highlightMenu">
+                <div class="highlight-option" data-color="red"><span class="dot red"></span> Red</div>
+                <div class="highlight-option" data-color="green"><span class="dot green"></span> Green</div>
+                <div class="highlight-option" data-color="blue"><span class="dot blue"></span> Blue</div>
+                <div class="highlight-option" data-color="yellow"><span class="dot yellow"></span> Yellow</div>
+                <div class="highlight-option" data-color="purple"><span class="dot purple"></span> Purple</div>
+                <div class="highlight-divider"></div>
+                <div class="highlight-option" data-color="none">None</div>
+            </div>
+
+            <!-- Nested Copy Menu -->
+            <div class="submenu hidden" id="copySubmenu">
+                <div class="submenu-item" data-action="curl">
+                    <span class="menu-icon">🐚</span> cURL (Bash)
+                </div>
+                <div class="submenu-item" data-action="fetch">
+                    <span class="menu-icon">📜</span> Fetch (JS)
+                </div>
+                <div class="submenu-item" data-action="python">
+                    <span class="menu-icon">🐍</span> Python Requests
                 </div>
             </div>
 

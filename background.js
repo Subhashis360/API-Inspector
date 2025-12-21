@@ -1,61 +1,120 @@
 // Import IndexedDB storage module
 importScripts('src/indexeddb.js');
 
-let attachedTabs = new Map();
-let collectedData = { jsFiles: {}, apiCalls: [], webSockets: [] };
-let windowModeActive = false; // Track if window mode is active
-let deletedWebSocketIds = new Set(); // Track deleted WebSocket IDs to prevent re-adding
+const attachedTabs = new Map();
+// REMOVED: large in-memory collectedData object. We rely on IndexedDB + small cache for active WebSocket control.
+let collectedData = { webSockets: [] }; // Only keep minimum needed for WS control
+let windowModeActive = false;
+let deletedWebSocketIds = new Set();
+// Optimized Tracking BlockList (Regex is faster than array.some + includes)
+const TRACKING_REGEX = new RegExp(
+  [
+    'google-analytics', 'googletagmanager', 'g\\.doubleclick', 'googleads', 'doubleclick', 'facebook\\.com/tr',
+    'analytics', 'telemetry', 'pixel', 'tracker', 'tracking',
+    'firebase', 'fcm\\.googleapis', 'onesignal', 'braze',
+    'segment', 'mixpanel', 'amplitude', 'adjust', 'appsflyer', 'heapanalytics',
+    'hotjar', 'clarity', 'sentry', 'newrelic', 'datadog',
+    'collect', 'measure', 'beacon',
+    'notifyvisitors', 'clevertap', 'heatmaps', 'event-api', 'google\\.com/xjs', 'gstatic\\.com/_/mss', 'connect\\.facebook\\.net/signals'
+  ].join('|'), 'i'
+);
+
+// --- STATE RESTORATION FOR EXTENSION RESTARTS (Manfiest V3) ---
+async function restoreState() {
+  try {
+    const saved = await StorageDB.getSetting('activeSessions');
+    if (saved && Array.isArray(saved)) {
+      console.log('[Background] Restoring active sessions:', saved.length);
+      for (const session of saved) {
+        if (!attachedTabs.has(session.tabId)) {
+          // Re-hydrate session object
+          attachedTabs.set(session.tabId, {
+            domain: session.domain,
+            captureAllRequests: session.captureAllRequests,
+            requests: new Map(), // Start fresh for in-memory requests map (ok since we store to DB)
+            websockets: new Map()
+          });
+
+          // Re-arm debugger if needed? 
+          // Usually debugger stays attached, we just lost our local map.
+          // We can Verify attachment:
+          chrome.debugger.getTargets((targets) => {
+            const isAttached = targets.some(t => t.tabId === session.tabId && t.attached);
+            if (!isAttached) {
+              console.warn(`[Background] Tab ${session.tabId} was marked active but is not attached. Cleaning up.`);
+              attachedTabs.delete(session.tabId);
+              saveSessionState();
+            }
+          });
+        }
+      }
+    }
+
+    // Restore window mode state
+    const winState = await StorageDB.getSetting('windowModeActive');
+    windowModeActive = !!winState;
+
+  } catch (e) {
+    console.error('Failed to restore state:', e);
+  }
+}
+
+// Save current attachedTabs state to DB
+async function saveSessionState() {
+  const sessions = [];
+  for (const [tabId, data] of attachedTabs) {
+    sessions.push({
+      tabId,
+      domain: data.domain,
+      captureAllRequests: data.captureAllRequests
+    });
+  }
+  await StorageDB.setSetting('activeSessions', sessions);
+  await StorageDB.setSetting('windowModeActive', windowModeActive);
+}
+
+// Init
+chrome.runtime.onStartup.addListener(restoreState);
+// Also run immediately in case of update/reload
+restoreState();
+
 
 function isJavaScriptFile(type, url) {
   if (!url) return false;
-  const urlLower = url.toLowerCase();
+  // Fast path
   if (type === 'Script') return true;
-  if (urlLower.endsWith('.js') || urlLower.endsWith('.mjs') || urlLower.endsWith('.jsx') || urlLower.includes('.js?') || urlLower.includes('.mjs?') || urlLower.includes('.jsx?')) return true;
-  if (urlLower.includes('javascript') || urlLower.includes('/script') || urlLower.includes('type=script')) return true;
-  return false;
+  const u = url.split('?')[0].toLowerCase(); // ignore params for extension check
+  return u.endsWith('.js') || u.endsWith('.mjs') || u.endsWith('.jsx') ||
+    url.includes('javascript:') || url.includes('/script');
 }
 
 function matchesDomainOrSubdomain(hostname, targetDomain) {
   if (!hostname || !targetDomain) return false;
-  const hostnameLower = hostname.toLowerCase();
-  const targetLower = targetDomain.toLowerCase();
-  if (hostnameLower === targetLower) return true;
-  if (hostnameLower.endsWith('.' + targetLower)) {
-    const depth = hostnameLower.split('.').length - targetLower.split('.').length;
-    if (depth > 0 && depth <= 10) return true;
-  }
-  if (targetLower.endsWith('.' + hostnameLower)) {
-    const depth = targetLower.split('.').length - hostnameLower.split('.').length;
-    if (depth > 0 && depth <= 10) return true;
-  }
-  return false;
+  if (hostname === targetDomain) return true;
+  return hostname.endsWith('.' + targetDomain); // Optimized simple suffix check
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
-  // Initialize IndexedDB settings
   await StorageDB.setSettings({
     isRecording: false,
     lastError: null
   });
-  // Data is now stored in IndexedDB object stores, not as a single 'collectedData' key
   console.log('[Background] Extension installed/updated, IndexedDB initialized');
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('[Background] Message received:', JSON.stringify(request));
-
-  const action = request.action ? request.action.trim() : '';
+  const action = request.action || '';
 
   if (action === 'startRecording') {
     doStartRecording(request.windowId, request.tabId, request.domain, request.captureAllRequests)
       .then(() => sendResponse({ success: true, status: 'started' }))
-      .catch((error) => sendResponse({ success: false, error: error.message }));
+      .catch((error) => sendResponse({ success: false, error: (error.message || error) }));
     return true;
   }
   if (action === 'stopRecording') {
     doStopRecording(request.tabId)
       .then(() => sendResponse({ success: true }))
-      .catch((error) => sendResponse({ success: false, error: error.message }));
+      .catch((error) => sendResponse({ success: false, error: (error.message || error) }));
     return true;
   }
   if (action === 'clearData') {
@@ -71,36 +130,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // Catch-all for unknown actions to aid debugging
-  console.warn('[Background] Unknown action received:', request.action);
-  // Log char codes to detect hidden characters
-  if (request.action) {
-    console.warn('Action char codes:', request.action.split('').map(c => c.charCodeAt(0)));
-  }
-  sendResponse({ success: false, error: 'Unknown action: ' + request.action });
-  return false;
+  return false; // let other listeners handle if any
 });
 
-
-
 async function updateStorage(entry) {
-  // Use IndexedDB with automatic batching for optimal performance
-  // The batching mechanism will automatically flush after 100ms or 10 items
+  // Direct to IndexedDB, bypass memory cache
   await StorageDB.addApiCall(entry);
-
-  // Update in-memory cache for quick access
-  if (!collectedData.apiCalls) collectedData.apiCalls = [];
-  const index = collectedData.apiCalls.findIndex(req => req.id === entry.id);
-  if (index !== -1) {
-    collectedData.apiCalls[index] = entry;
-  } else {
-    collectedData.apiCalls.push(entry);
-  }
-
-  // Optimize memory by keeping only last 2000 requests in memory
-  if (collectedData.apiCalls.length > 2000) {
-    collectedData.apiCalls.shift();
-  }
 }
 
 // Helper to get hostname safely
@@ -222,6 +257,7 @@ async function attachToTab(tabId, domain, captureAllRequests) {
     websockets: new Map()
   };
   attachedTabs.set(tabId, session);
+  await saveSessionState(); // Persist state
 }
 
 // Listen for new tabs in window mode
@@ -283,6 +319,7 @@ async function doStopRecording(tabId) {
     attachedTabs.delete(tid);
   }
 
+  await saveSessionState(); // Update state
   await StorageDB.setSetting('isRecording', false);
 }
 
@@ -336,6 +373,8 @@ chrome.debugger.onDetach.addListener((source, reason) => {
     }
 
     attachedTabs.delete(source.tabId);
+    saveSessionState(); // Update state
+
     // Only stop recording if no tabs are attached and not in window mode
     if (attachedTabs.size === 0 && !windowModeActive) {
       StorageDB.setSetting('isRecording', false);
@@ -376,21 +415,9 @@ async function handleRequest(tabId, params, session) {
   // Filters control display only, not capture
 
   // Layer 4: Block Analytics, Tracking, and Push Notifications
-  // Blocks common services: Google Analytics, GTM, Firebase, OneSignal, Segment, Mixpanel, etc.
-  // Blocks keywords: analytics, tracking, telemetry, pixel, metric, etc.
-  const trackingPatterns = [
-    'google-analytics', 'googletagmanager', 'g.doubleclick', 'googleads', 'doubleclick', 'facebook.com/tr',
-    'analytics', 'telemetry', 'pixel', 'tracker', 'tracking',
-    'firebase', 'fcm.googleapis', 'onesignal', 'braze', 'push', 'notification',
-    'segment', 'mixpanel', 'amplitude', 'adjust', 'appsflyer', 'heapanalytics',
-    'hotjar', 'clarity', 'sentry', 'newrelic', 'datadog',
-    'collect', 'measure', 'beacon',
-    // Added based on user feedback:
-    'notifyvisitors', 'clevertap', 'heatmaps', 'event-api', 'google.com/xjs', 'gstatic.com/_/mss', 'connect.facebook.net/signals'
-  ];
-
-  if (trackingPatterns.some(p => urlLower.includes(p))) {
-    console.log(`[API Inspector] ❌ Blocked tracking/analytics: ${url}`);
+  // Optimized: Use pre-compiled Regex
+  if (TRACKING_REGEX.test(urlLower)) {
+    // console.log(`[API Inspector] ❌ Blocked tracking/analytics: ${url}`);
     return;
   }
 

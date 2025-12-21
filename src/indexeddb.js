@@ -884,17 +884,35 @@ class IndexedDBManager {
     /**
      * Get storage statistics
      */
+    /**
+     * Get storage statistics - OPTIMIZED to use .count()
+     */
     async getStats() {
-        const [apiCalls, webSockets] = await Promise.all([
-            this.getApiCalls(),
-            this.getWebSockets()
-        ]);
+        await this.init();
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction([STORES.API_CALLS, STORES.WEBSOCKETS], 'readonly');
 
-        return {
-            apiCallsCount: apiCalls.length,
-            webSocketsCount: webSockets.length,
-            totalItems: apiCalls.length + webSockets.length
-        };
+            let apiCallsCount = 0;
+            let webSocketsCount = 0;
+
+            const apiReq = tx.objectStore(STORES.API_CALLS).count();
+            const wsReq = tx.objectStore(STORES.WEBSOCKETS).count();
+
+            apiReq.onsuccess = () => { apiCallsCount = apiReq.result; };
+            wsReq.onsuccess = () => { webSocketsCount = wsReq.result; };
+
+            tx.oncomplete = () => {
+                resolve({
+                    apiCalls: apiCallsCount, // Kept "apiCalls" key compatibility if needed, but updated popup uses apiCountEl
+                    webSockets: webSocketsCount,
+                    // Return counts with specific keys expected by consumers
+                    apiCallsCount: apiCallsCount,
+                    webSocketsCount: webSocketsCount,
+                    totalItems: apiCallsCount + webSocketsCount
+                });
+            };
+            tx.onerror = () => reject(tx.error);
+        });
     }
 }
 

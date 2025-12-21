@@ -1,46 +1,35 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;600;700&display=swap');
 
 :root {
-    /* Premium Dark Theme Palette - "Midnight & Neon" */
-    --bg-app: #09090b;
-    /* Zinc 950 - Deeper black */
-    --bg-sidebar: #0f1218;
-    /* Slightly lighter/bluer dark */
-    --bg-panel: #11141d;
-    --bg-hover: #1f2536;
-    --bg-active: #272e42;
-    --bg-input: #050507;
+    /* Premium Dark Theme Palette - "Midnight & Gold" */
+    --bg-app: #050505;
+    --bg-sidebar: #0a0a0a;
+    --bg-panel: #141414;
+    --bg-hover: #1f1f22;
+    --bg-active: #27272a;
+    --bg-input: #000000;
 
-    --border-color: #232836;
-    --border-light: #32394d;
+    --border-color: #27272a;
+    --border-light: #3f3f46;
 
-    --text-primary: #f8fafc;
-    /* Slate 50 */
-    --text-secondary: #94a3b8;
-    /* Slate 400 */
-    --text-muted: #64748b;
-    /* Slate 500 */
+    --text-primary: #ffffff;
+    --text-secondary: #a1a1aa;
+    --text-muted: #52525b;
 
     /* Vibrant Accents */
-    --accent-primary: #6366f1;
-    /* Indigo 500 - More modern than basic blue */
-    --accent-hover: #818cf8;
-    /* Indigo 400 */
-    --accent-dim: rgba(99, 102, 241, 0.15);
+    --accent-primary: #FFD600;
+    --accent-hover: #FFEA00;
+    --accent-dim: rgba(255, 214, 0, 0.12);
 
     /* Gradient Accents */
-    --gradient-primary: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    --gradient-text: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+    --gradient-primary: linear-gradient(135deg, #FFD600 0%, #FFAB00 100%);
+    --gradient-text: linear-gradient(135deg, #fff 0%, #e4e4e7 100%);
 
     /* Status Colors */
     --success: #10b981;
-    /* Emerald 500 */
     --warning: #f59e0b;
-    /* Amber 500 */
     --danger: #ef4444;
-    /* Red 500 */
     --info: #3b82f6;
-    /* Blue 500 */
 
     /* Typography */
     --font-heading: 'Outfit', sans-serif;
@@ -52,23 +41,23 @@
     --sidebar-width: 280px;
 
     /* Effects */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --glass-bg: rgba(15, 18, 24, 0.7);
-    --glass-border: 1px solid rgba(255, 255, 255, 0.05);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
+    --glass-bg: rgba(10, 10, 10, 0.8);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.08);
 
     /* Highlight Colors */
     --highlight-red: rgba(239, 68, 68, 0.15);
     --highlight-green: rgba(16, 185, 129, 0.15);
     --highlight-blue: rgba(59, 130, 246, 0.15);
-    --highlight-yellow: rgba(245, 158, 11, 0.15);
+    --highlight-yellow: rgba(255, 214, 0, 0.2);
     --highlight-purple: rgba(168, 85, 247, 0.15);
 
     /* Material Design Colors for Search Bar */
-    --accent: #44a2ff;
-    --accent-surface: #253145;
-    --neutral: #5e5e5e;
+    --accent: #FFD600;
+    --accent-surface: #18181b;
+    --neutral: #71717a;
 }
 
 * {
@@ -143,7 +132,7 @@ body {
 
 .logo-icon {
     font-size: 24px;
-    filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.5));
+    filter: drop-shadow(0 0 12px rgba(255, 214, 0, 0.4));
 }
 
 .logo-text {
@@ -194,7 +183,7 @@ body {
 .nav-item.active {
     background: var(--gradient-primary);
     color: white;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 4px 12px rgba(255, 214, 0, 0.4);
 }
 
 .nav-badge {
@@ -293,7 +282,7 @@ body {
     overflow: hidden;
     position: relative;
     /* subtle pattern overlay */
-    background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 400px);
+    background-image: radial-gradient(circle at top right, rgba(255, 214, 0, 0.08), transparent 400px);
 }
 
 /* Top Bar */

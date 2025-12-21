@@ -10,7 +10,8 @@
     "webNavigation",
     "debugger",
     "scripting",
-    "proxy"
+    "proxy",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "https://*/*",

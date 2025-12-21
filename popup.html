@@ -5,555 +5,347 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>API Inspector</title>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #09090b;
-      --bg-secondary: #0f1218;
-      --bg-card: #11141d;
-      --bg-hover: #1f2536;
-      --bg-glass: rgba(15, 18, 24, 0.85);
-
-      --accent-primary: #FFC107;
-      --accent-hover: #FFD54F;
-      --accent-glow: rgba(255, 193, 7, 0.4);
-      --accent-dim: rgba(255, 193, 7, 0.12);
-
-      --gradient-yellow: linear-gradient(135deg, #FFC107 0%, #FFB300 100%);
-
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-
-      --border-color: #232836;
-      --border-light: #32394d;
-
+      /* Premium Dark Theme Palette */
+      --bg-primary: #050505;
+      --bg-secondary: #0a0a0a;
+      --bg-card: rgba(20, 20, 20, 0.6);
+      --bg-glass: rgba(10, 10, 10, 0.8);
+      
+      /* Vibrant Accents */
+      --accent-primary: #FFD600; /* Brighter yellow */
+      --accent-hover: #FFEA00;
+      --accent-glow: rgba(255, 214, 0, 0.15);
+      --accent-dim: rgba(255, 214, 0, 0.08);
+      
+      --gradient-main: linear-gradient(135deg, #FFD600 0%, #FFAB00 100%);
+      
+      --text-primary: #ffffff;
+      --text-secondary: #a1a1aa;
+      --text-muted: #52525b;
+      
+      --border-color: #27272a;
+      --border-light: #3f3f46;
+      
       --success: #10b981;
       --danger: #ef4444;
-
-      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.15);
-      --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.2);
-      --shadow-glow: 0 0 16px rgba(255, 193, 7, 0.25);
+      
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      width: 380px;
-      min-height: 420px;
-      font-family: 'Inter', sans-serif;
+      width: 360px;
+      min-height: 480px;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg-primary);
       color: var(--text-primary);
       overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
+      padding: 0;
     }
 
     .container {
       display: flex;
       flex-direction: column;
-      padding: 20px;
-      gap: 18px;
+      padding: 24px;
+      gap: 20px;
+      min-height: 100vh;
+      background: radial-gradient(circle at top right, rgba(255, 214, 0, 0.05), transparent 50%);
     }
 
-    /* Compact Header */
+    /* Cinematic Header */
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border-color);
-      position: relative;
-    }
-
-    .header::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      width: 60px;
-      height: 2px;
-      background: var(--gradient-yellow);
-      box-shadow: var(--shadow-glow);
+      margin-bottom: 8px;
     }
 
     .logo {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
     }
 
     .logo-icon {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--gradient-yellow);
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
-      font-size: 16px;
+      background: var(--gradient-main);
+      border-radius: 10px;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(255, 171, 0, 0.2);
     }
 
     .logo-text {
       font-family: 'Outfit', sans-serif;
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 700;
-      background: linear-gradient(135deg, #FFD700 0%, #FFC107 50%, #FFB300 100%);
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.3px;
+      letter-spacing: -0.5px;
+      color: var(--text-primary);
     }
 
     .status-badge {
-      font-size: 9px;
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
+      font-size: 10px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transition: all 0.3s var(--ease-out);
     }
 
     .status-badge.stopped {
-      background: rgba(239, 68, 68, 0.12);
-      color: var(--danger);
-      border: 1px solid rgba(239, 68, 68, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
     }
 
     .status-badge.recording {
-      background: rgba(16, 185, 129, 0.12);
+      background: rgba(16, 185, 129, 0.1);
       color: var(--success);
-      border: 1px solid rgba(16, 185, 129, 0.25);
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.1);
       animation: pulse 2s infinite;
     }
 
-    /* Segmented Control for Modes */
+    /* Modern Segmented Control */
     .mode-selector {
       display: flex;
       background: var(--bg-secondary);
-      border-radius: 10px;
       padding: 4px;
-      gap: 4px;
-      position: relative;
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
     }
 
-    .mode-option {
-      flex: 1;
-      position: relative;
-    }
-
-    .mode-option input[type="radio"] {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-    }
+    .mode-option { flex: 1; position: relative; }
+    .mode-option input { opacity: 0; position: absolute; pointer-events: none; }
 
     .mode-label {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 12px 10px;
-      border-radius: 8px;
+      padding: 10px;
+      border-radius: 10px;
       cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      background: transparent;
-      border: 1px solid transparent;
+      color: var(--text-muted);
+      transition: all 0.3s var(--ease-out);
+      gap: 4px;
     }
 
-    .mode-option input:checked+.mode-label {
-      background: var(--accent-dim);
-      border-color: var(--accent-primary);
-      box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.08);
-    }
-
-    .mode-icon {
-      font-size: 16px;
-      margin-bottom: 3px;
-      opacity: 0.7;
-      transition: opacity 0.2s;
-    }
-
-    .mode-option input:checked+.mode-label .mode-icon {
-      opacity: 1;
-    }
-
-    .mode-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-align: center;
-      line-height: 1.2;
-      transition: color 0.2s;
-    }
-
-    .mode-option input:checked+.mode-label .mode-title {
+    .mode-option input:checked + .mode-label {
+      background: var(--bg-card);
       color: var(--accent-primary);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      border: 1px solid var(--border-light);
     }
+    
+    .mode-icon { font-size: 16px; transition: transform 0.3s var(--ease-out); }
+    .mode-option input:checked + .mode-label .mode-icon { transform: scale(1.1); }
+    
+    .mode-title { font-size: 11px; font-weight: 600; }
 
-    /* Compact Input Section */
+    /* Inputs & Forms */
     .input-section {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      animation: fadeIn 0.3s ease;
+      gap: 16px;
+      animation: slideIn 0.4s var(--ease-out);
     }
 
-    .input-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
+    .input-wrapper { display: flex; flex-direction: column; gap: 8px; }
+    
     label {
-      font-size: 10px;
-      color: var(--text-muted);
-      font-weight: 600;
-      text-transform: uppercase;
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 500;
       letter-spacing: 0.5px;
     }
 
     input[type="text"] {
       background: var(--bg-secondary);
-      border: 1.5px solid var(--border-color);
+      border: 1px solid var(--border-color);
       color: var(--text-primary);
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 12px 14px;
+      border-radius: 12px;
       font-size: 13px;
       outline: none;
       transition: all 0.2s;
-      font-family: inherit;
+      width: 100%;
     }
 
     input[type="text"]:focus {
       border-color: var(--accent-primary);
-      box-shadow: 0 0 0 3px var(--accent-dim);
+      background: var(--bg-primary);
+      box-shadow: 0 0 0 4px var(--accent-dim);
     }
 
-    /* Compact Checkbox */
+    /* Glass Checkbox */
     .checkbox-wrapper {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       cursor: pointer;
-      padding: 9px 12px;
-      background: var(--bg-glass);
-      backdrop-filter: blur(12px);
-      border-radius: 8px;
+      padding: 10px 14px;
+      background: var(--bg-card);
       border: 1px solid var(--border-color);
+      border-radius: 12px;
       transition: all 0.2s;
     }
-
-    .checkbox-wrapper:hover {
-      border-color: var(--border-light);
-    }
+    .checkbox-wrapper:hover { border-color: var(--text-muted); background: var(--bg-hover); }
 
     input[type="checkbox"] {
       appearance: none;
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       border: 2px solid var(--border-light);
-      border-radius: 4px;
+      border-radius: 5px;
       position: relative;
       cursor: pointer;
-      transition: all 0.2s;
-      flex-shrink: 0;
+      transition: all 0.2s var(--ease-out);
     }
-
     input[type="checkbox"]:checked {
-      background: var(--gradient-yellow);
+      background: var(--accent-primary);
       border-color: var(--accent-primary);
     }
-
     input[type="checkbox"]:checked::after {
       content: '✓';
       position: absolute;
-      top: 50%;
-      left: 50%;
+      top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      color: var(--bg-primary);
-      font-size: 10px;
+      color: #000;
+      font-size: 12px;
       font-weight: 800;
     }
 
-    .checkbox-label {
-      font-size: 12px;
-      color: var(--text-primary);
-      text-transform: none;
-      font-weight: 500;
-    }
+    .checkbox-label { font-size: 13px; color: var(--text-primary); }
 
-    /* Info Box */
-    .info-box {
-      font-size: 11px;
-      color: var(--text-secondary);
-      padding: 10px 12px;
-      background: var(--accent-dim);
-      border-left: 2px solid var(--accent-primary);
-      border-radius: 6px;
-      line-height: 1.4;
-      font-weight: 500;
-    }
-
-    /* Compact Action Buttons */
+    /* Buttons */
     .action-btn {
       width: 100%;
-      padding: 14px;
+      padding: 16px;
       border: none;
-      border-radius: 10px;
-      font-size: 13px;
+      border-radius: 14px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
+      transition: transform 0.2s var(--ease-out), box-shadow 0.2s;
+      letter-spacing: 0.5px;
       position: relative;
       overflow: hidden;
-      font-family: inherit;
     }
+    .action-btn:active { transform: scale(0.98); }
 
     .btn-start {
-      background: var(--gradient-yellow);
-      color: #1a1a1a;
-      box-shadow: 0 3px 12px rgba(255, 193, 7, 0.35);
-      margin-top: 6px;
+      background: var(--gradient-main);
+      color: #000;
+      box-shadow: 0 4px 16px rgba(255, 171, 0, 0.25);
     }
-
-    .btn-start:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(255, 193, 7, 0.45);
-    }
+    .btn-start:hover { box-shadow: 0 6px 20px rgba(255, 171, 0, 0.35); transform: translateY(-1px); }
 
     .btn-stop {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      color: white;
-      box-shadow: 0 3px 12px rgba(239, 68, 68, 0.35);
-    }
-
-    .btn-stop:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(239, 68, 68, 0.45);
+      background: var(--danger);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25);
     }
 
     .btn-dashboard {
-      background: var(--bg-card);
+      background: transparent;
       color: var(--text-secondary);
-      border: 1.5px solid var(--border-color);
-      padding: 10px;
-      font-size: 12px;
-    }
-
-    .btn-dashboard:hover {
-      border-color: var(--accent-primary);
-      color: var(--accent-primary);
-    }
-
-    /* Compact Recording View */
-    .recording-view {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .recording-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: var(--bg-glass);
-      backdrop-filter: blur(12px);
-      border-radius: 10px;
       border: 1px solid var(--border-color);
+      padding: 12px;
+    }
+    .btn-dashboard:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+      background: var(--bg-secondary);
     }
 
-    .pulse-indicator {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.15), transparent);
-      border: 2px solid var(--success);
+    /* Recording View */
+    .recording-view { display: flex; flex-direction: column; gap: 20px; animation: slideIn 0.5s var(--ease-out); }
+    
+    .recording-pulse-container {
       display: flex;
-      align-items: center;
       justify-content: center;
-      position: relative;
-      flex-shrink: 0;
-      animation: ringPulse 2s ease-in-out infinite;
+      padding: 10px 0;
     }
-
-    .pulse-indicator::after {
-      content: '';
-      position: absolute;
-      width: 100%;
-      height: 100%;
+    
+    .pulse-visual {
+      width: 80px; height: 80px;
+      background: rgba(16, 185, 129, 0.1);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .pulse-visual::before, .pulse-visual::after {
+      content: ''; position: absolute;
+      width: 100%; height: 100%;
       border-radius: 50%;
       border: 2px solid var(--success);
       animation: ripple 2s infinite;
     }
+    .pulse-visual::after { animation-delay: 1s; }
+    
+    .pulse-icon { font-size: 32px; z-index: 2; }
 
-    .pulse-icon {
-      font-size: 20px;
-      filter: drop-shadow(0 2px 4px rgba(16, 185, 129, 0.5));
-    }
+    .recording-details { text-align: center; }
+    .recording-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .recording-target { color: var(--accent-primary); font-family: 'Mono', monospace; font-size: 13px; font-weight: 600; }
 
-    .recording-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .recording-label {
-      font-size: 10px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-
-    .target-url {
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--accent-primary);
-      font-size: 11px;
-      word-break: break-all;
-      font-weight: 500;
-      line-height: 1.4;
-    }
-
-    /* Compact Stats Grid */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    
     .stat-card {
-      background: var(--bg-glass);
-      backdrop-filter: blur(12px);
-      padding: 12px;
-      border-radius: 10px;
+      background: var(--bg-card);
       border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 16px;
       text-align: center;
-      transition: all 0.2s;
-      position: relative;
-      overflow: hidden;
     }
-
-    .stat-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 2px;
-      background: var(--gradient-yellow);
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .stat-card:hover::before {
-      opacity: 1;
-    }
-
     .stat-value {
-      font-size: 24px;
+      font-size: 28px;
       font-weight: 800;
-      background: var(--gradient-yellow);
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      font-family: 'Outfit', sans-serif;
-      line-height: 1.2;
+      color: var(--text-primary);
+      letter-spacing: -1px;
     }
-
     .stat-label {
-      font-size: 10px;
+      font-size: 11px;
       color: var(--text-secondary);
       text-transform: uppercase;
       margin-top: 4px;
       font-weight: 600;
-      letter-spacing: 0.3px;
     }
 
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.7;
-      }
+    /* Animations */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    @keyframes ripple { 0% { transform: scale(0.8); opacity: 0.8; } 100% { transform: scale(1.8); opacity: 0; } }
 
-    @keyframes ringPulse {
-
-      0%,
-      100% {
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
-      }
-
-      50% {
-        box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
-      }
-    }
-
-    @keyframes ripple {
-      0% {
-        transform: scale(1);
-        opacity: 0.6;
-      }
-
-      100% {
-        transform: scale(1.5);
-        opacity: 0;
-      }
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-6px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    ::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 2px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
+    .hidden { display: none !important; }
+    
+    .info-box {
+      font-size: 12px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-left: 3px solid var(--accent-primary);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      margin-top: 4px;
     }
   </style>
 </head>
 
 <body>
   <div class="container">
-    <!-- Compact Header -->
+    <!-- Header -->
     <div class="header">
       <div class="logo">
         <div class="logo-icon">⚡</div>
@@ -564,7 +356,6 @@
 
     <!-- Setup View -->
     <div id="setupView">
-      <!-- Segmented Mode Selector -->
       <div class="mode-selector">
         <div class="mode-option">
           <input type="radio" name="targetMode" value="custom" id="modeCustom" checked>
@@ -589,7 +380,6 @@
         </div>
       </div>
 
-      <!-- Custom URL Inputs -->
       <div id="customUrlSection" class="input-section">
         <div class="input-wrapper">
           <label>Target URL</label>
@@ -601,19 +391,16 @@
         </label>
       </div>
 
-      <!-- Current Tab Info -->
       <div id="currentTabSection" class="input-section hidden">
         <div class="input-wrapper">
           <label>Current Tab URL</label>
-          <div id="currentUrlDisplay" class="target-url"
-            style="padding: 10px 12px; background: var(--accent-dim); border-radius: 8px; border: 1px solid rgba(255, 193, 7, 0.2);">
-            Detecting...</div>
+          <div id="currentUrlDisplay" class="info-box" style="margin:0; background: var(--bg-card);">
+            Detecting...
+          </div>
         </div>
       </div>
 
-      <!-- Options -->
-      <div id="optionsSection" class="input-section"
-        style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+      <div id="optionsSection" class="input-section" style="border-top: 1px solid var(--border-color); padding-top: 12px;">
         <label class="checkbox-wrapper" id="subdomainWrapper">
           <input type="checkbox" id="includeSubdomains" checked>
           <span class="checkbox-label">Capture subdomains</span>
@@ -625,17 +412,19 @@
       <button id="startBtn" class="action-btn btn-start">Start Recording</button>
     </div>
 
-    <!-- Compact Recording View -->
+    <!-- Recording View -->
     <div id="recordingView" class="hidden">
       <div class="recording-view">
-        <div class="recording-header">
-          <div class="pulse-indicator">
-            <span class="pulse-icon">📡</span>
-          </div>
-          <div class="recording-info">
-            <div class="recording-label">Monitoring</div>
-            <div id="recordingTarget" class="target-url">...</div>
-          </div>
+        
+        <div class="recording-pulse-container">
+           <div class="pulse-visual">
+             <span class="pulse-icon">📡</span>
+           </div>
+        </div>
+        
+        <div class="recording-details">
+           <div class="recording-label">Active Monitoring</div>
+           <div id="recordingTarget" class="recording-target">...</div>
         </div>
 
         <div class="stats-grid">
@@ -645,7 +434,7 @@
           </div>
           <div class="stat-card">
             <div class="stat-value" id="jsCount">0</div>
-            <div class="stat-label">JS Files</div>
+            <div class="stat-label">WebSockets</div>
           </div>
         </div>
 
@@ -656,9 +445,7 @@
     <button id="dashboardBtn" class="action-btn btn-dashboard">Open Dashboard</button>
   </div>
 
-  <!-- IndexedDB Storage Module -->
   <script src="src/indexeddb.js"></script>
   <script src="popup.js"></script>
 </body>
-
 </html>

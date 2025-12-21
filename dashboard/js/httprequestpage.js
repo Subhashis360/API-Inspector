@@ -420,41 +420,49 @@ class HttpRequestPage extends DashboardCommon {
             });
         });
 
-        // Copy Curl
-        this.elements.copyCurlBtn.addEventListener('click', () => this.copyAsCurl());
+        // ---- Advanced Context Menu Logic ----
+        this.setupNestedMenu('ctxHighlight', 'highlightMenu');
+        this.setupNestedMenu('ctxCopyAs', 'copySubmenu');
 
-        // Send to Repeater
-        this.elements.sendToRepeaterBtn.addEventListener('click', () => this.sendToRepeater());
-
-        // Highlight
-        this.elements.highlightBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.elements.highlightMenu.classList.toggle('hidden');
-            const rect = this.elements.highlightBtn.getBoundingClientRect();
-            this.elements.highlightMenu.style.top = `${rect.bottom + 5}px`;
-            this.elements.highlightMenu.style.left = `${rect.left - 100}px`;
+        // Copy Actions
+        document.querySelectorAll('.submenu-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const action = e.currentTarget.dataset.action;
+                if (this.contextMenuItem) {
+                    this.handleCopyAction(action, this.contextMenuItem);
+                    this.closeAllMenus();
+                }
+            });
         });
 
+        // Highlight Menu Actions (Color Selection)
         document.querySelectorAll('.highlight-option').forEach(opt => {
             opt.addEventListener('click', (e) => {
                 const color = e.currentTarget.dataset.color;
-                this.setHighlight(color);
-                this.elements.highlightMenu.classList.add('hidden');
+                if (this.contextMenuItem) {
+                    this.contextMenuItem.highlightColor = color;
+                    this.storageDB.updateApiCall(this.contextMenuItem);
+
+                    const el = document.querySelector(`.request-item[data-id="${this.contextMenuItem.id}"]`);
+                    if (el) {
+                        el.className = el.className.replace(/highlight-\w+/g, '').trim();
+                        if (color !== 'none') el.classList.add(`highlight-${color}`);
+                    }
+                }
+                this.closeAllMenus();
             });
         });
 
         // Global click handler to close menus
         document.addEventListener('click', () => {
-            this.elements.highlightMenu.classList.add('hidden');
-            this.elements.contextMenu.classList.add('hidden');
-            this.elements.folderContextMenu.classList.add('hidden');
+            this.closeAllMenus();
         });
 
         // Context Menu - Send to Repeater
         this.elements.ctxSendToRepeater.addEventListener('click', () => {
             if (this.contextMenuItem) {
                 this.sendToRepeater(this.contextMenuItem);
-                this.elements.contextMenu.classList.add('hidden');
+                this.closeAllMenus();
             }
         });
 
@@ -464,7 +472,7 @@ class HttpRequestPage extends DashboardCommon {
                 if (confirm('Are you sure you want to delete this request?')) {
                     this.deleteRequest(this.contextMenuItem);
                 }
-                this.elements.contextMenu.classList.add('hidden');
+                this.closeAllMenus();
             }
         });
 
@@ -1259,9 +1267,10 @@ class HttpRequestPage extends DashboardCommon {
         this.renderList();
     }
 
-    copyAsCurl() {
-        if (!this.selectedItem) return;
-        const item = this.selectedItem;
+    copyAsCurl(specificItem = null) {
+        const item = specificItem || this.selectedItem;
+        if (!item) return;
+
         let curl = `curl -X ${item.method} "${item.url}"`;
         if (item.requestHeaders) {
             item.requestHeaders.forEach(h => {
@@ -1274,10 +1283,8 @@ class HttpRequestPage extends DashboardCommon {
         }
 
         navigator.clipboard.writeText(curl).then(() => {
-            const btn = this.elements.copyCurlBtn;
-            const original = btn.textContent;
-            btn.textContent = 'Copied!';
-            setTimeout(() => btn.textContent = original, 1500);
+            // Toast notification could exist here, but simple copy is fine for context menu
+            console.log('Copied cURL to clipboard');
         });
     }
 
@@ -1697,6 +1704,134 @@ class HttpRequestPage extends DashboardCommon {
             // Scroll the highlight into view within the detail pane
             firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+    }
+
+    // --- Nested Menu Helpers ---
+
+    setupNestedMenu(triggerId, menuId) {
+        const trigger = document.getElementById(triggerId);
+        const menu = document.getElementById(menuId);
+        if (!trigger || !menu) return;
+
+        let timeout;
+
+        // Mouse Enter: Show Menu
+        trigger.addEventListener('mouseenter', () => {
+            clearTimeout(timeout);
+
+            // Hide other submenus first
+            document.querySelectorAll('.highlight-menu, .submenu').forEach(el => {
+                if (el.id !== menuId) el.classList.add('hidden');
+            });
+
+            const rect = trigger.getBoundingClientRect();
+            menu.style.top = `${rect.top}px`;
+            menu.style.left = `${rect.right - 5}px`; // Slight overlap
+            menu.classList.remove('hidden');
+        });
+
+        // Mouse Leave (Trigger): Hide with delay
+        trigger.addEventListener('mouseleave', () => {
+            timeout = setTimeout(() => {
+                if (!menu.matches(':hover')) {
+                    menu.classList.add('hidden');
+                }
+            }, 100);
+        });
+
+        // Mouse Leave (Menu): Hide
+        menu.addEventListener('mouseleave', () => {
+            timeout = setTimeout(() => {
+                if (!trigger.matches(':hover')) {
+                    menu.classList.add('hidden');
+                }
+            }, 100);
+        });
+
+        // Keep open while hovering menu
+        menu.addEventListener('mouseenter', () => {
+            clearTimeout(timeout);
+        });
+    }
+
+    closeAllMenus() {
+        this.elements.contextMenu.classList.add('hidden');
+        this.elements.folderContextMenu.classList.add('hidden');
+        if (this.elements.highlightMenu) this.elements.highlightMenu.classList.add('hidden');
+        const copySub = document.getElementById('copySubmenu');
+        if (copySub) copySub.classList.add('hidden');
+    }
+
+    // --- Copy Actions ---
+
+    handleCopyAction(action, item) {
+        if (action === 'curl') this.copyAsCurl(item);
+        else if (action === 'fetch') this.copyAsFetch(item);
+        else if (action === 'python') this.copyAsPython(item);
+    }
+
+    copyToClipboard(text, msg = 'Copied!') {
+        navigator.clipboard.writeText(text).then(() => {
+            console.log(msg); // Optional: toast
+        });
+    }
+
+    copyAsFetch(item) {
+        let code = `fetch("${item.url}", {\n`;
+        code += `  "method": "${item.method}",\n`;
+
+        const headers = {};
+        if (item.requestHeaders) {
+            item.requestHeaders.forEach(h => {
+                if (!h.name.startsWith(':')) headers[h.name] = h.value;
+            });
+        }
+        if (Object.keys(headers).length > 0) {
+            code += `  "headers": ${JSON.stringify(headers, null, 2).replace(/\n/g, '\n  ')},\n`;
+        }
+
+        if (item.requestBody) {
+            const body = typeof item.requestBody === 'string' ? item.requestBody : JSON.stringify(item.requestBody);
+            code += `  "body": ${JSON.stringify(body)}\n`;
+        }
+
+        code += `});`;
+        this.copyToClipboard(code, 'Copied as Fetch');
+    }
+
+    copyAsPython(item) {
+        let code = `import requests\n\n`;
+        code += `url = "${item.url}"\n`;
+
+        const headers = {};
+        if (item.requestHeaders) {
+            item.requestHeaders.forEach(h => {
+                if (!h.name.startsWith(':')) headers[h.name] = h.value;
+            });
+        }
+
+        if (Object.keys(headers).length > 0) {
+            code += `headers = ${JSON.stringify(headers, null, 2)}\n`;
+        } else {
+            code += `headers = {}\n`;
+        }
+
+        if (item.requestBody) {
+            try {
+                const jsonBody = typeof item.requestBody === 'string' ? JSON.parse(item.requestBody) : item.requestBody;
+                code += `json_data = ${JSON.stringify(jsonBody, null, 2)}\n`;
+                code += `response = requests.${item.method.toLowerCase()}(url, headers=headers, json=json_data)`;
+            } catch (e) {
+                const bodyStr = typeof item.requestBody === 'string' ? item.requestBody : JSON.stringify(item.requestBody);
+                code += `data = ${JSON.stringify(bodyStr)}\n`;
+                code += `response = requests.${item.method.toLowerCase()}(url, headers=headers, data=data)`;
+            }
+        } else {
+            code += `response = requests.${item.method.toLowerCase()}(url, headers=headers)`;
+        }
+
+        code += `\nprint(response.text)`;
+        this.copyToClipboard(code, 'Copied as Python');
     }
 }
 

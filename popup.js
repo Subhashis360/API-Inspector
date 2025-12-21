@@ -92,13 +92,13 @@ function getCurrentTab() {
     if (tabs[0]) {
       currentActiveTab = tabs[0];
       if (currentActiveTab.url && (currentActiveTab.url.startsWith('http') || currentActiveTab.url.startsWith('file'))) {
-        currentUrlDisplay.textContent = currentActiveTab.url;
+        currentUrlDisplay.textContent = truncateText(currentActiveTab.url, 45);
         currentUrlDisplay.style.color = 'var(--accent-primary)';
       } else if (currentMode === 'window') {
-        currentUrlDisplay.textContent = currentActiveTab.url || 'Unknown URL';
+        currentUrlDisplay.textContent = truncateText(currentActiveTab.url || 'Unknown URL', 45);
         currentUrlDisplay.style.color = 'var(--text-secondary)';
       } else {
-        currentUrlDisplay.textContent = 'Invalid URL (must be http/https/file)';
+        currentUrlDisplay.textContent = 'Invalid URL';
         currentUrlDisplay.style.color = 'var(--danger)';
       }
       updateTargetInfo();
@@ -128,7 +128,7 @@ function updateTargetInfo() {
     } else if (url) {
       const hostname = new URL(url).hostname;
       const baseDomain = hostname.replace(/^www\./, '');
-      const subText = includeSubdomains.checked ? 'and all subdomains' : '(exact domain only)';
+      const subText = includeSubdomains.checked ? '(+subs)' : '';
       infoText = `Target: ${baseDomain} ${subText}`;
     }
     if (infoText) {
@@ -372,7 +372,7 @@ function updateUIState(isRecording, domain = '', captureAllRequests = false) {
     if (captureAllRequests) {
       recordingTarget.textContent = 'Whole Window';
     } else {
-      recordingTarget.textContent = domain || 'Unknown Domain';
+      recordingTarget.textContent = truncateText(domain || 'Unknown Domain', 25);
     }
     startBtn.disabled = false;
     startBtn.textContent = 'Start Recording';
@@ -401,23 +401,27 @@ function stopStatsInterval() {
 }
 
 async function updateStats() {
-  const collectedData = await StorageDB.getCollectedData();
-  apiCountEl.textContent = collectedData.apiCalls ? collectedData.apiCalls.length : 0;
-  jsCountEl.textContent = countJSFiles(collectedData.jsFiles);
+  try {
+    const stats = await StorageDB.getStats();
+    // Format numbers nicely (e.g. 1.2k) if they get large
+    apiCountEl.textContent = stats.apiCallsCount || 0;
+
+    // In the new layout, this card is labeled "WebSockets", so we show WS count
+    jsCountEl.textContent = stats.webSocketsCount || 0;
+  } catch (e) {
+    console.error('Stats update failed:', e);
+  }
 }
 
-function countJSFiles(jsFiles) {
-  if (!jsFiles) return 0;
-  let count = 0;
-  function traverse(obj) {
-    for (const key in obj) {
-      if (obj[key] && obj[key].url) {
-        count++;
-      } else if (typeof obj[key] === 'object') {
-        traverse(obj[key]);
-      }
-    }
-  }
-  traverse(jsFiles);
-  return count;
+// Utility to truncate long URLs to prevent layout overflow
+function truncateText(text, maxLength = 35) {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
+}
+
+// Update UI Text helper
+function safeSetText(elementId, text) {
+  const el = document.getElementById(elementId);
+  if (el) el.textContent = truncateText(text);
 }
